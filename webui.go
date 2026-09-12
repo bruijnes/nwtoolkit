@@ -86,7 +86,6 @@ th{color:var(--mut);font-weight:500}
    <button class="go" onclick="startTrace()">Start</button>
    <button class="stop" onclick="stopLoop()">Stop</button>
   </div>
-  <div class="hint">Repeat = 0 &rarr; one-shot. &gt;0 &rarr; continuous monitor that refreshes the table.</div>
   <table id="t_tbl"><thead><tr><th>hop</th><th>adres</th><th>rtt (ms)</th></tr></thead><tbody></tbody></table>
  </div>
 </section>
@@ -126,7 +125,6 @@ th{color:var(--mut);font-weight:500}
    <button class="go" onclick="startLoop('dhcp')">Start</button>
    <button class="stop" onclick="stopLoop()">Stop</button>
   </div>
-  <div class="hint">Empty field = broadcast to the network itself, with no prior knowledge of any server; every server that answers is listed. Filling in a server IP measures that one server with a unicast INFORM.</div>
   <div id="dh_stats"></div>
   <canvas id="dh_cv"></canvas>
  </div>
@@ -139,7 +137,6 @@ th{color:var(--mut);font-weight:500}
    <div><label>Wait (s)</label><input id="ll_wait" value="35" style="width:90px"></div>
    <button class="go" onclick="lldpGo()">Find neighbour</button>
   </div>
-  <div class="hint">Asks the connected switch and port over LLDP. Can take up to ~30 s, because LLDP is sent periodically. On Windows this goes through the built-in pktmon, so run as Administrator.</div>
   <div id="ll_out"></div>
  </div>
 </section>

@@ -651,7 +651,6 @@ func runGUI() {
 				Title:  "Response time (ms)",
 				Layout: d.VBox{Margins: mrg(8), Spacing: 6},
 				Children: []d.Widget{
-					d.Label{Text: "Asks the network itself, with no prior knowledge of any server, the way a device behaves when it is first plugged in. Every DHCP server on the segment answers; if more than one does, they are all listed, and that is the signal for a rogue server."},
 					d.Label{AssignTo: &dhStats, Text: "Ready."},
 					d.CustomWidget{AssignTo: &dhChart, MinSize: d.Size{Height: 130}, StretchFactor: 1, InvalidatesOnResize: true, Paint: func(c *walk.Canvas, _ walk.Rectangle) error { return paintChart(dhData, dhChart, c) }},
 					d.TextEdit{AssignTo: &dhOut, ReadOnly: true, MinSize: d.Size{Height: 90}, Font: d.Font{Family: "Consolas", PointSize: 9}},
@@ -709,7 +708,6 @@ func runGUI() {
 				Title:  "Connected switch/port",
 				Layout: d.VBox{Margins: mrg(8), Spacing: 6},
 				Children: []d.Widget{
-					d.Label{Text: "Windows uses the built-in pktmon for this; run as Administrator."},
 					d.TextEdit{AssignTo: &llOut, ReadOnly: true, VScroll: true, Font: d.Font{Family: "Consolas", PointSize: 9}},
 				},
 			},

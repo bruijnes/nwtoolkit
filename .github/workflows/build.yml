@@ -1,0 +1,95 @@
+name: build
+
+# Builds the Windows executable on every push and pull request, and attaches it to
+# a GitHub Release when a version tag (v*) is pushed. The release job is where the
+# SignPath signing step slots in later: sign the built exe before it is published,
+# so users download a signed binary. See the commented block in the release job.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Vet (linux and windows targets)
+        run: |
+          go vet ./...
+          GOOS=windows GOARCH=amd64 go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Generate Windows resources (manifest + version info)
+        run: |
+          go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
+          "$(go env GOPATH)/bin/goversioninfo" -64 -o resource_windows_amd64.syso versioninfo.json
+
+      - name: Build Windows amd64
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: "0"
+        run: go build -ldflags "-s -w" -o dist/nwtoolkit.exe .
+
+      - name: Upload build artifact
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: nwtoolkit-windows-amd64
+          path: dist/nwtoolkit.exe
+          if-no-files-found: error
+
+  release:
+    # Runs only for version tags, e.g. `git tag v1.28 && git push --tags`.
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nwtoolkit-windows-amd64
+          path: dist
+
+      # --- SignPath signing goes here, once the project is approved ---
+      # SignPath signs an artifact built by CI and hands back a signed copy. After
+      # approval you get an ORGANIZATION_ID, a project/signing-policy slug and an
+      # API token (store the token as the repo secret SIGNPATH_API_TOKEN). Then add:
+      #
+      #   - uses: signpath/github-action-submit-signing-request@v1
+      #     with:
+      #       api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+      #       organization-id: <your-organization-id>
+      #       project-slug: nwtoolkit
+      #       signing-policy-slug: release-signing
+      #       artifact-configuration-slug: exe
+      #       github-artifact-id: ${{ needs.build.outputs.artifact-id }}
+      #       wait-for-completion: true
+      #       output-artifact-directory: dist-signed
+      #
+      # Then publish dist-signed/nwtoolkit.exe below instead of dist/nwtoolkit.exe.
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/nwtoolkit.exe
+          generate_release_notes: true

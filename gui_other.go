@@ -4,8 +4,9 @@ package main
 
 import "fmt"
 
-// The native GUI only exists on Windows; elsewhere the tool falls back to the web UI.
+// The native window UI only exists on Windows. Elsewhere there is nothing to open,
+// so point the user at the command line and drop into the interactive menu.
 func runGUI() {
-	fmt.Println("The native window interface is only available on Windows; start the web UI instead.")
-	cmdWeb("127.0.0.1:8733")
+	fmt.Println("The native window UI is only available on Windows. Use the command line, or the menu below.")
+	interactiveMenu()
 }

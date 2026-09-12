@@ -88,7 +88,3 @@ func (c *afpacketCap) next(timeout time.Duration) ([]byte, error) {
 
 // No pktmon on Linux.
 func tryPktmon(o lldpOpts) error { return errPktmonUnsupported }
-
-func pktmonCollect(wait time.Duration) (map[string]*lldpNeighbor, error) {
-	return nil, errPktmonUnsupported
-}

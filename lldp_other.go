@@ -15,7 +15,3 @@ func openLLDP(hint string) (capturer, []string, error) {
 var _ = time.Second
 
 func tryPktmon(o lldpOpts) error { return errPktmonUnsupported }
-
-func pktmonCollect(wait time.Duration) (map[string]*lldpNeighbor, error) {
-	return nil, errPktmonUnsupported
-}

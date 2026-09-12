@@ -21,9 +21,6 @@ line. Ping, traceroute, DNS, DHCP and LLDP, with live charts.
 - **LLDP neighbour** — show which switch and port you are connected to: system
   name, port, VLAN, chassis MAC and management address.
 
-A graphical web UI (`nwtoolkit web`) offers the same features with charts in the
-browser.
-
 ## Quick start
 
 Double-click `nwtoolkit.exe` to open a native Windows window with a tab and live
@@ -33,7 +30,6 @@ Other ways to start:
 
 ```
 nwtoolkit gui     native Windows window
-nwtoolkit web     the features in the browser
 nwtoolkit menu    an interactive text menu
 ```
 
@@ -45,7 +41,6 @@ nwtoolkit trace switch.example.com -m
 nwtoolkit dns example.com -s 1.1.1.1 -type MX
 nwtoolkit dnsspeed example.com -s 1.1.1.1
 nwtoolkit dhcp
-nwtoolkit web
 ```
 
 Run `nwtoolkit help` for the full list of commands and flags.
@@ -71,9 +66,6 @@ requires Administrator. With `-s <ip>` the tool measures one specific server.
 so the tool uses the built-in Packet Monitor (pktmon). That ships with Windows 10
 and 11 and needs no Npcap or other external driver, but it does require
 Administrator. Run the exe elevated for LLDP.
-
-**Web UI.** `nwtoolkit web` serves on `http://127.0.0.1:8733` and opens the
-browser. `nwtoolkit web 0.0.0.0:8080` makes it reachable from other machines.
 
 ## SmartScreen
 

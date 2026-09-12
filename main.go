@@ -15,7 +15,6 @@ func usage() {
 Usage:    nwtoolkit <command> [options]
           nwtoolkit            (double-click: native window; in a terminal: menu)
           nwtoolkit gui        (native Windows window)
-          nwtoolkit web        (graphical web UI in the browser)
           nwtoolkit menu       (interactive text menu)
 
 Commands:
@@ -64,7 +63,6 @@ Commands:
       -m           keep monitoring
       (Windows: uses the built-in pktmon; Administrator required)
 
-  web    [address]           web UI (default 127.0.0.1:8733)
 
 Examples:
   nwtoolkit ping 8.8.8.8 -t
@@ -72,7 +70,6 @@ Examples:
   nwtoolkit dns example.com -s 1.1.1.1 -type MX
   nwtoolkit dnsspeed example.com -s 1.1.1.1
   nwtoolkit dhcp -s 192.168.1.1
-  nwtoolkit web
 `)
 }
 
@@ -114,15 +111,6 @@ func main() {
 		interactiveMenu()
 	case "gui", "window":
 		runGUI()
-	case "web":
-		addr := "127.0.0.1:8733"
-		if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
-			addr = args[0]
-			if !strings.Contains(addr, ":") {
-				addr = "127.0.0.1:" + addr
-			}
-		}
-		cmdWeb(addr)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n\n", cmd)
 		usage()
@@ -307,7 +295,6 @@ func interactiveMenu() {
 		fmt.Println("   4)  DNS speed test (chart)")
 		fmt.Println("   5)  DHCP speed test (chart)")
 		fmt.Println("   6)  LLDP neighbour (connected switch/port)")
-		fmt.Println("   7)  Web UI in browser")
 		fmt.Println("   0)  Exit")
 		fmt.Println()
 		choice := ask("  Choice", "")
@@ -353,11 +340,6 @@ func interactiveMenu() {
 			iface := ask("  Interface (empty=automatic, or part of the name)", "")
 			mon := strings.HasPrefix(strings.ToLower(ask("  Monitor continuously? (y/n)", "n")), "y")
 			cmdLLDP(lldpOpts{iface: iface, wait: 35 * time.Second, monitor: mon})
-		case "7":
-			go cmdWeb("127.0.0.1:8733")
-			fmt.Println("\n  Web UI started. Press Enter to return to the menu (the server keeps running).")
-			in.ReadString('\n')
-			continue
 		case "0", "q", "":
 			return
 		default:

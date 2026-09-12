@@ -1,0 +1,10 @@
+# Build-artefacten
+*.exe
+*.dll
+nwtoolkit
+nwtoolkit-crash.log
+
+# Go
+vendor/
+*.test
+*.out

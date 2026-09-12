@@ -1,0 +1,26 @@
+{
+  "FixedFileInfo": {
+    "FileVersion":    {"Major": 1, "Minor": 2, "Patch": 8, "Build": 0},
+    "ProductVersion": {"Major": 1, "Minor": 2, "Patch": 8, "Build": 0},
+    "FileFlagsMask": "3f",
+    "FileFlags": "00",
+    "FileOS": "040004",
+    "FileType": "01",
+    "FileSubType": "00"
+  },
+  "StringFileInfo": {
+    "CompanyName":      "Vincent Bruijnes",
+    "ProductName":      "nwtoolkit",
+    "FileDescription":  "nwtoolkit - netwerkdiagnose (IPv4)",
+    "InternalName":     "nwtoolkit",
+    "OriginalFilename": "nwtoolkit.exe",
+    "ProductVersion":   "1.2.8",
+    "FileVersion":      "1.2.8",
+    "LegalCopyright":   "(c) Vincent Bruijnes",
+    "Comments":         "Netwerkdiagnose: ping, traceroute, DNS, DHCP, LLDP"
+  },
+  "VarFileInfo": {
+    "Translation": {"LangID": "0413", "CharsetID": "04B0"}
+  },
+  "ManifestPath": "nwtoolkit.manifest"
+}

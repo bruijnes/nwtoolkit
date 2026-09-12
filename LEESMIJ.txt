@@ -1,0 +1,88 @@
+nwtoolkit — netwerkdiagnose (IPv4)
+================================
+
+Eén Windows-executable, geen installatie, geen afhankelijkheden.
+Dubbelklikken opent een menu. Vanaf de commandoregel kun je alles ook
+scripten. Kleuren en grafieken werken in Windows Terminal, PowerShell en cmd.
+
+FUNCTIES
+--------
+1. Ping            — eenmalig (4x) of continu, met min/gem/max en verlies-%.
+2. Traceroute      — eenmalig, of continu-monitor die per hop min/gem/max
+                     latency en pakketverlies bijhoudt (verse tabel).
+3. DNS-query       — vraag een record op bij een specifieke of de systeem-
+                     resolver, mét responstijd in ms.
+4. DNS-speedtest   — meet de DNS-responstijd, eenmalig of elke 5 s continu
+                     met een live ASCII-lijngrafiek.
+5. DHCP-speedtest  — meet hoe snel de DHCP-server reageert (OFFER/ACK),
+                     eenmalig of continu met grafiek.
+
+6. LLDP-buur     — toont welke switch en poort je aan de andere kant hangt
+                     (systeemnaam, poort, VLAN, chassis-MAC, mgmt-adres, enz.).
+
+Plus een grafische web-UI (nwtoolkit web) met echte grafieken in de browser.
+
+SNELSTART
+---------
+Dubbelklik nwtoolkit.exe  → opent een echt Windows-venster (GUI) met tabs
+                          voor alle functies en live grafieken.
+
+Andere manieren om te starten:
+  nwtoolkit gui    → hetzelfde native venster
+  nwtoolkit web    → de functies in de browser i.p.v. een venster
+  nwtoolkit menu   → een tekst-menu in de terminal
+
+Tip: start als Administrator (rechtsklik → Als administrator uitvoeren)
+     voor de LLDP- en broadcast-DHCP-functies.
+
+Of via de commandoregel:
+  nwtoolkit ping 8.8.8.8 -t
+  nwtoolkit trace synapseprod-http.zmst.loc -m
+  nwtoolkit dns deep.radio -s 1.1.1.1 -type MX
+  nwtoolkit dnsspeed deep.radio -s 1.1.1.1
+  nwtoolkit dhcp -s 192.168.1.1
+  nwtoolkit web
+
+Volledige hulp:  nwtoolkit help
+
+BELANGRIJK PER FUNCTIE
+----------------------
+Ping / Traceroute
+  Gebruikt de Windows-ICMP-API (IcmpSendEcho2). Werkt zonder Administrator.
+  IPv4 only.
+
+DNS
+  -s leeg = systeem-DNS (via GetNetworkParams). Anders -s <ip> of <ip:poort>.
+
+DHCP-speedtest — twee methodes:
+  * -s <server-ip>  → unicast DHCPINFORM vanaf een vrije poort.
+      GEEN Administrator nodig, geen conflict met de Windows DHCP-client,
+      neemt GEEN lease. Werkt als de server op de bron-poort terugantwoordt
+      (de meeste ISC/dnsmasq/Windows-servers doen dit voor unicast).
+  * -s leeg         → broadcast DHCPDISCOVER op poort 68.
+      Dit is de "echte" DORA-start, maar poort 68 is bij Windows in gebruik
+      door de DHCP-clientservice. Draai dan de exe als Administrator; lukt
+      binden nog niet, gebruik dan de -s <ip> methode hierboven.
+
+LLDP-buur
+  nwtoolkit lldp           → toont de aangesloten switch/poort
+  nwtoolkit lldp -l        → toon beschikbare interfaces
+  nwtoolkit lldp -i Ethernet -w 40   → kies interface + wachttijd
+  nwtoolkit lldp -m        → blijf monitoren (Windows: vereist Npcap)
+
+  Windows kan geen ruwe L2-frames in userland opvangen zonder driver.
+  De tool gebruikt daarom automatisch de INGEBOUWDE pktmon (Administrator
+  nodig, geen installatie). Voor de -m monitormodus of realtime capture
+  installeer je Npcap (https://npcap.com); de tool pakt die dan vanzelf.
+  Start de exe dus als Administrator voor LLDP.
+
+Web-UI
+  nwtoolkit web            → http://127.0.0.1:8733 (opent automatisch de browser)
+  nwtoolkit web 0.0.0.0:8080  → ook vanaf andere machines bereikbaar
+
+Als Windows SmartScreen de exe blokkeert (niet-ondertekend, van internet):
+  rechtsklik → Eigenschappen → "Blokkering opheffen", of in PowerShell:
+  Unblock-File .\nwtoolkit.exe
+
+Zelf bouwen (Go 1.24+):
+  go build -ldflags "-s -w" -o nwtoolkit.exe .

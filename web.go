@@ -85,7 +85,7 @@ func cmdWeb(addr string) {
 	// één DHCP-meting
 	mux.HandleFunc("/api/dhcp", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
-		o := dhcpOpts{server: q.Get("server"), iface: q.Get("iface"), timeout: 3 * time.Second, port: qInt(r, "port", 0), ipv6: q.Get("v6") == "1", discover: q.Get("discover") == "1"}
+		o := dhcpOpts{server: q.Get("server"), iface: q.Get("iface"), timeout: 3 * time.Second, port: qInt(r, "port", 0), ipv6: q.Get("v6") == "1"}
 		res, err := dhcpProbe(o)
 		out := map[string]any{}
 		if err != nil {

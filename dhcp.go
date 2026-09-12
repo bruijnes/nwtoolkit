@@ -19,7 +19,6 @@ type dhcpOpts struct {
 	count    int
 	port     int // lokale poort; 0 = auto (68 voor broadcast, ephemeral voor inform)
 	ipv6     bool
-	discover bool // forceer broadcast DISCOVER: doe alsof geen enkele server bekend is
 }
 
 // netIface beschrijft een bruikbare interface voor de DHCP-interfacekeuze.
@@ -319,10 +318,8 @@ func dhcpProbeUDP(o dhcpOpts) (dhcpResult, error) {
 }
 
 func cmdDHCP(o dhcpOpts) {
-	method := "broadcast DISCOVER (poort 68)"
-	if o.discover {
-		method = "broadcast DISCOVER — alsof dit netwerk onbekend is"
-	} else if o.ipv6 {
+	method := "broadcast naar 255.255.255.255 — zonder voorkennis van servers"
+	if o.ipv6 {
 		method = "DHCPv6 INFORMATION-REQUEST (multicast ff02::1:2)"
 		if o.server != "" {
 			method = "DHCPv6 INFORMATION-REQUEST naar " + o.server

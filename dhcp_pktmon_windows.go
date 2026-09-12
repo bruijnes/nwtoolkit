@@ -116,11 +116,17 @@ func dhcpProbePktmon(o dhcpOpts) (dhcpResult, error) {
 	var reqTS int64
 	var res dhcpResult
 	got := false
-	for _, fr := range parsePcapngTS(data) {
+	frames := parsePcapngTS(data)
+	var nDHCP, nOurs int
+	for _, fr := range frames {
+		if isDHCPFrame(fr.data) {
+			nDHCP++
+		}
 		mt, yi, sid, ok, dir := classifyDHCPFrame(fr.data, xid)
 		if !ok {
 			continue
 		}
+		nOurs++
 		if dir == dhcpToServer && reqTS == 0 {
 			reqTS = fr.tsNanos
 			continue
@@ -145,7 +151,8 @@ func dhcpProbePktmon(o dhcpOpts) (dhcpResult, error) {
 	if got {
 		return res, nil
 	}
-	return dhcpResult{}, fmt.Errorf("geen antwoord binnen %s (%s)", o.timeout, where)
+	return dhcpResult{}, fmt.Errorf("geen antwoord binnen %s (%s) — %s",
+		o.timeout, where, captureDiag(len(data), len(frames), nDHCP, nOurs, reqTS != 0))
 }
 
 const (
@@ -183,4 +190,42 @@ func classifyDHCPFrame(f []byte, xid uint32) (msgType byte, yiaddr, serverID net
 		return 0, nil, nil, false, 0
 	}
 	return mt, yi, sid, true, dir
+}
+
+// isDHCPFrame zegt of een ruw Ethernet-frame UDP-verkeer op poort 67 of 68 is,
+// ongeacht transactie-id. Gebruikt om te kunnen zeggen wát pktmon wél zag.
+func isDHCPFrame(f []byte) bool {
+	if len(f) < 14+20+8 || f[12] != 0x08 || f[13] != 0x00 {
+		return false
+	}
+	ihl := int(f[14]&0x0f) * 4
+	if ihl < 20 || 14+ihl+8 > len(f) || f[14+9] != 17 {
+		return false
+	}
+	src := binary.BigEndian.Uint16(f[14+ihl:])
+	dst := binary.BigEndian.Uint16(f[14+ihl+2:])
+	return src == 67 || src == 68 || dst == 67 || dst == 68
+}
+
+// captureDiag vertelt in gewone taal waar de pktmon-meting op stukliep. Zonder dit
+// is elke mislukking een kale timeout en valt er niets te herleiden.
+func captureDiag(bytes, frames, dhcp, ours int, sawRequest bool) string {
+	switch {
+	case bytes == 0:
+		return "de pcapng van pktmon was leeg; de capture is niet gelopen"
+	case frames == 0:
+		return fmt.Sprintf("pktmon leverde %d bytes pcapng op maar er kwam geen enkel frame uit de parser; "+
+			"waarschijnlijk een pcapng-variant die deze tool niet leest", bytes)
+	case dhcp == 0:
+		return fmt.Sprintf("pktmon ving %d frames op, maar geen enkel DHCP-frame (UDP 67/68); "+
+			"de capture staat mogelijk op een ander netwerkonderdeel dan de actieve adapter", frames)
+	case !sawRequest:
+		return fmt.Sprintf("pktmon ving %d frames op waarvan %d DHCP, maar onze eigen DISCOVER zat er niet bij; "+
+			"het verzoek is de adapter niet uit gekomen", frames, dhcp)
+	case ours == 0:
+		return fmt.Sprintf("pktmon ving %d frames op waarvan %d DHCP, maar geen met ons transactie-id", frames, dhcp)
+	default:
+		return fmt.Sprintf("pktmon ving %d frames op, %d DHCP, %d met ons transactie-id, maar geen OFFER of ACK; "+
+			"er staat geen DHCP-server op dit segment of hij antwoordt niet op een broadcast", frames, dhcp, ours)
+	}
 }

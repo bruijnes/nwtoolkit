@@ -339,7 +339,7 @@ func runGUI() {
 
 	var pHost, dName, dServer, dsName, dsServer *walk.LineEdit
 	var pInt, dsInt, dhInt, dhTo, llWait *walk.LineEdit
-	var dType, llIf, dhIf, dhMode *walk.ComboBox
+	var dType, llIf, dhIf *walk.ComboBox
 	var pChart, dsChart, dhChart *walk.CustomWidget
 	var pStats, dsStats, dhStats *walk.Label
 	var pLog, dOut, trOut, llOut, dhOut, aboutLic, aboutTxt *walk.TextEdit
@@ -605,9 +605,6 @@ func runGUI() {
 				Children: []d.Widget{
 					d.Label{Text: "Interface:"},
 					d.ComboBox{AssignTo: &dhIf, Editable: true, MaxSize: d.Size{Width: 220}},
-					d.Label{Text: "Methode:"},
-					d.ComboBox{AssignTo: &dhMode, MaxSize: d.Size{Width: 190},
-						Model: []string{"Automatisch", "Broadcast DISCOVER"}, Value: "Automatisch"},
 					d.Label{Text: "Interval (s):"},
 					d.LineEdit{AssignTo: &dhInt, Text: "5", MaxSize: d.Size{Width: 50}},
 					d.Label{Text: "Timeout (s):"},
@@ -626,8 +623,7 @@ func runGUI() {
 						if to <= 0 {
 							to = 8 * time.Second
 						}
-						o := dhcpOpts{iface: name, srcIP: srcIP, timeout: to, ipv6: useV6(),
-							discover: strings.HasPrefix(dhMode.Text(), "Broadcast")}
+						o := dhcpOpts{iface: name, srcIP: srcIP, timeout: to, ipv6: useV6()}
 						startSpeed(&dhJob, dhData, dhChart, dhStats, dhOut, "DHCP-speedtest", dur(atof(dhInt.Text(), 5)), func() (float64, string, error) {
 							res, err := dhcpProbe(o)
 							if err != nil {
@@ -655,7 +651,7 @@ func runGUI() {
 				Title:  "Responstijd (ms)",
 				Layout: d.VBox{Margins: mrg(8), Spacing: 6},
 				Children: []d.Widget{
-					d.Label{Text: "Automatisch meet met een unicast INFORM naar de DHCP-server die Windows al kent; dat werkt zonder extra rechten. Broadcast DISCOVER negeert alle voorkennis en vraagt het netwerk zelf, zoals een apparaat dat net wordt aangesloten; daarvoor is Administrator nodig. Antwoorden meer servers, dan worden ze allemaal getoond."},
+					d.Label{Text: "Vraagt het netwerk zelf, zonder enige voorkennis van servers, zoals een apparaat dat net wordt aangesloten. Elke DHCP-server op het segment antwoordt; komen er meerdere, dan worden ze allemaal getoond en is dat het signaal voor een ongewenste server."},
 					d.Label{AssignTo: &dhStats, Text: "Klaar."},
 					d.CustomWidget{AssignTo: &dhChart, MinSize: d.Size{Height: 130}, StretchFactor: 1, InvalidatesOnResize: true, Paint: func(c *walk.Canvas, _ walk.Rectangle) error { return paintChart(dhData, dhChart, c) }},
 					d.TextEdit{AssignTo: &dhOut, ReadOnly: true, MinSize: d.Size{Height: 90}, Font: d.Font{Family: "Consolas", PointSize: 9}},

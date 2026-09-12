@@ -14,17 +14,22 @@ FUNCTIES
                      resolver, mét responstijd in ms.
 4. DNS-speedtest   — meet de DNS-responstijd, eenmalig of elke 5 s continu
                      met een live ASCII-lijngrafiek.
-5. DHCP-speedtest  — meet hoe snel de DHCP-server reageert (OFFER/ACK),
-                     eenmalig of continu met grafiek. Twee methodes:
-                     Automatisch stuurt een unicast INFORM naar de server die
-                     Windows al kent; dat werkt zonder extra rechten.
-                     Broadcast DISCOVER negeert alle voorkennis en vraagt het
-                     netwerk zelf, zoals een apparaat dat net wordt
-                     aangesloten. Antwoorden er meerdere servers, dan worden ze
-                     allemaal getoond: dat is het signaal voor een ongewenste
-                     (rogue) DHCP-server. Broadcast vereist Administrator,
-                     omdat het antwoord op poort 68 binnenkomt en die van de
-                     Windows DHCP-Clientservice is.
+5. DHCP-speedtest  — meet hoe snel de DHCP-server reageert, eenmalig of
+                     continu met grafiek. Meet altijd via een broadcast naar
+                     255.255.255.255, dus zonder enige voorkennis van servers,
+                     zoals een apparaat dat net wordt aangesloten. Elke
+                     DHCP-server op het segment antwoordt; komen er meerdere,
+                     dan worden ze allemaal getoond en is dat het signaal voor
+                     een ongewenste (rogue) server.
+                     Het verzoek is een DHCP INFORM vanaf een hoge poort. Dat
+                     antwoord komt terug op onze eigen poort en hoort bij ons
+                     uitgaande verkeer, dus de firewall laat het door en er is
+                     geen Administrator nodig. Een INFORM reserveert ook geen
+                     adres, dus herhaald meten put de adressenpool niet uit.
+                     Lukt dat niet, dan volgt alsnog een echte DISCOVER via de
+                     ingebouwde pktmon (Administrator) en daarna een gewone
+                     socket op poort 68.
+                     Met -s <ip> meet je gericht naar één server.
 
 6. LLDP-buur     — toont welke switch en poort je aan de andere kant hangt
                      (systeemnaam, poort, VLAN, chassis-MAC, mgmt-adres, enz.).

@@ -22,14 +22,14 @@ Commands:
   ping   <host>              ICMP ping
       -c <n>       count (default 4; -t for endless)
       -t           keep pinging until Ctrl+C
-      -i <sec>     interval (default 1)
-      -w <sec>     timeout per ping (default 2)
+      -i <s>       interval in seconds (default 1)
+      -w <s>       timeout per ping in seconds (default 2)
       -s <bytes>   payload size (default 32)
       -6           use IPv6
 
   trace  <host>              traceroute
       -m           continuous monitor (live table with min/avg/max per hop)
-      -i <sec>     repeat interval while monitoring (default 3)
+      -i <s>       repeat interval in seconds while monitoring (default 3)
       -h <n>       max hops (default 30)
       -q <n>       probes per hop (default 3)
       -n           look up reverse DNS names
@@ -44,7 +44,7 @@ Commands:
       -s <server>  DNS server (default: system)
       -1           single measurement
       -m           continuous monitor with live chart (default)
-      -i <sec>     interval (default 5)
+      -i <s>       interval in seconds (default 5)
       -c <n>       fixed number of measurements instead of monitoring
 
   dhcp                       measure DHCP response time + chart
@@ -54,13 +54,13 @@ Commands:
       -6           DHCPv6 (INFORMATION-REQUEST; multicast or -s <server>)
       -1           single measurement
       -m           continuous monitor with live chart (default)
-      -i <sec>     interval (default 5)
+      -i <s>       interval in seconds (default 5)
       -c <n>       fixed number of measurements
 
   lldp                       show LLDP neighbour (connected switch/port)
       -l           list available interfaces
       -i <name>    pick interface (part of name/description)
-      -w <sec>     wait time for a single capture (default 35)
+      -w <s>       wait time in seconds for a single capture (default 35)
       -m           keep monitoring
       (Windows: uses the built-in pktmon; Administrator required)
 
@@ -171,8 +171,8 @@ func runPing(args []string) {
 	fs := flag.NewFlagSet("ping", flag.ExitOnError)
 	c := fs.Int("c", 4, "count")
 	t := fs.Bool("t", false, "oneindig")
-	i := fs.Float64("i", 1, "interval sec")
-	w := fs.Float64("w", 2, "timeout sec")
+	i := fs.Float64("i", 1, "interval (s)")
+	w := fs.Float64("w", 2, "timeout (s)")
 	s := fs.Int("s", 32, "payload bytes")
 	six := fs.Bool("6", false, "use IPv6")
 	fs.Parse(rest)
@@ -190,7 +190,7 @@ func runTraceCmd(args []string) {
 	host, rest := firstPositional(args, map[string]bool{"m": true, "n": true, "6": true})
 	fs := flag.NewFlagSet("trace", flag.ExitOnError)
 	m := fs.Bool("m", false, "monitor")
-	i := fs.Float64("i", 3, "interval sec")
+	i := fs.Float64("i", 3, "interval (s)")
 	h := fs.Int("h", 30, "max hops")
 	q := fs.Int("q", 3, "probes")
 	n := fs.Bool("n", false, "reverse dns")
@@ -223,7 +223,7 @@ func runDNS(args []string, speed bool) {
 	typ := fs.String("type", defType, "recordtype")
 	one := fs.Bool("1", false, "one-shot")
 	m := fs.Bool("m", speed, "monitor")
-	i := fs.Float64("i", 5, "interval sec")
+	i := fs.Float64("i", 5, "interval (s)")
 	c := fs.Int("c", 0, "fixed count")
 	six := fs.Bool("6", false, "use IPv6")
 	fs.Parse(rest)
@@ -250,7 +250,7 @@ func runDHCP(args []string) {
 	s := fs.String("s", "", "server ip")
 	one := fs.Bool("1", false, "one-shot")
 	m := fs.Bool("m", true, "monitor")
-	i := fs.Float64("i", 5, "interval sec")
+	i := fs.Float64("i", 5, "interval (s)")
 	c := fs.Int("c", 0, "fixed count")
 	port := fs.Int("port", 0, "local port")
 	six := fs.Bool("6", false, "use DHCPv6")
@@ -270,7 +270,7 @@ func runLLDP(args []string) {
 	_, rest := splitArgs(args, map[string]bool{"m": true, "l": true})
 	fs := flag.NewFlagSet("lldp", flag.ExitOnError)
 	i := fs.String("i", "", "interface (part of name/description)")
-	w := fs.Float64("w", 35, "wait seconds for a single capture")
+	w := fs.Float64("w", 35, "wait (s) for a single capture")
 	m := fs.Bool("m", false, "monitor (keep showing)")
 	l := fs.Bool("l", false, "list available interfaces")
 	fs.Parse(rest)
@@ -315,7 +315,7 @@ func interactiveMenu() {
 		switch choice {
 		case "1":
 			host := ask("  Host/IP", "1.1.1.1")
-			cont := strings.HasPrefix(strings.ToLower(ask("  Ping continuously? (y/n)", "n")), "j")
+			cont := strings.HasPrefix(strings.ToLower(ask("  Ping continuously? (y/n)", "n")), "y")
 			cnt := 4
 			if cont {
 				cnt = 0
@@ -323,7 +323,7 @@ func interactiveMenu() {
 			cmdPing(pingOpts{host: host, count: cnt, interval: time.Second, timeout: 2 * time.Second, size: 32})
 		case "2":
 			host := ask("  Host/IP", "example.com")
-			mon := strings.HasPrefix(strings.ToLower(ask("  Monitor continuously? (y/n)", "n")), "j")
+			mon := strings.HasPrefix(strings.ToLower(ask("  Monitor continuously? (y/n)", "n")), "y")
 			cmdTrace(traceOpts{host: host, maxHops: 30, probes: 3, timeout: 2 * time.Second, monitor: mon, interval: 3 * time.Second, resolve: true})
 		case "3":
 			name := ask("  Name", "example.com")
@@ -351,7 +351,7 @@ func interactiveMenu() {
 			cmdDHCP(o)
 		case "6":
 			iface := ask("  Interface (empty=automatic, or part of the name)", "")
-			mon := strings.HasPrefix(strings.ToLower(ask("  Monitor continuously? (y/n)", "n")), "j")
+			mon := strings.HasPrefix(strings.ToLower(ask("  Monitor continuously? (y/n)", "n")), "y")
 			cmdLLDP(lldpOpts{iface: iface, wait: 35 * time.Second, monitor: mon})
 		case "7":
 			go cmdWeb("127.0.0.1:8733")

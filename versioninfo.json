@@ -11,16 +11,17 @@
   "StringFileInfo": {
     "CompanyName":      "Vincent Bruijnes",
     "ProductName":      "nwtoolkit",
-    "FileDescription":  "nwtoolkit - netwerkdiagnose (IPv4)",
+    "FileDescription":  "nwtoolkit - network diagnostics (IPv4)",
     "InternalName":     "nwtoolkit",
     "OriginalFilename": "nwtoolkit.exe",
     "ProductVersion":   "1.2.8",
     "FileVersion":      "1.2.8",
     "LegalCopyright":   "(c) Vincent Bruijnes",
-    "Comments":         "Netwerkdiagnose: ping, traceroute, DNS, DHCP, LLDP"
+    "Comments":         "Network diagnostics: ping, traceroute, DNS, DHCP, LLDP"
   },
   "VarFileInfo": {
-    "Translation": {"LangID": "0413", "CharsetID": "04B0"}
+    "Translation": {"LangID": "0409", "CharsetID": "04B0"}
   },
+  "IconPath": "nwtoolkit.ico",
   "ManifestPath": "nwtoolkit.manifest"
 }

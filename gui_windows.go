@@ -648,7 +648,7 @@ func runGUI() {
 				Title:  "Responstijd (ms)",
 				Layout: d.VBox{Margins: mrg(8), Spacing: 6},
 				Children: []d.Widget{
-					d.Label{Text: "Broadcast DISCOVER; OFFER opgevangen via Npcap of de ingebouwde pktmon (net als LLDP). Start als Administrator."},
+					d.Label{Text: "Meet eerst met een unicast INFORM naar de DHCP-server die Windows al kent; dat werkt zonder extra rechten. Lukt dat niet, dan volgt een broadcast DISCOVER via de ingebouwde pktmon, en daarvoor is Administrator nodig."},
 					d.Label{AssignTo: &dhStats, Text: "Klaar."},
 					d.CustomWidget{AssignTo: &dhChart, MinSize: d.Size{Height: 130}, StretchFactor: 1, InvalidatesOnResize: true, Paint: func(c *walk.Canvas, _ walk.Rectangle) error { return paintChart(dhData, dhChart, c) }},
 					d.TextEdit{AssignTo: &dhOut, ReadOnly: true, MinSize: d.Size{Height: 90}, Font: d.Font{Family: "Consolas", PointSize: 9}},
@@ -706,7 +706,7 @@ func runGUI() {
 				Title:  "Aangesloten switch/poort",
 				Layout: d.VBox{Margins: mrg(8), Spacing: 6},
 				Children: []d.Widget{
-					d.Label{Text: "Windows zonder Npcap gebruikt de ingebouwde pktmon (start als Administrator)."},
+					d.Label{Text: "Windows gebruikt hiervoor de ingebouwde pktmon; start als Administrator."},
 					d.TextEdit{AssignTo: &llOut, ReadOnly: true, VScroll: true, Font: d.Font{Family: "Consolas", PointSize: 9}},
 				},
 			},
@@ -721,11 +721,11 @@ func runGUI() {
 			d.Label{Text: "nwtoolkit " + version, Font: d.Font{Family: "Segoe UI", PointSize: 15, Bold: true}},
 			d.VSpacer{Size: 4},
 			d.TextEdit{
-				AssignTo:  &aboutTxt,
-				ReadOnly:  true,
-				MaxSize:   d.Size{Height: 130},
-				MinSize:   d.Size{Height: 110},
-				Font:      d.Font{Family: "Segoe UI", PointSize: 9},
+				AssignTo: &aboutTxt,
+				ReadOnly: true,
+				MaxSize:  d.Size{Height: 130},
+				MinSize:  d.Size{Height: 110},
+				Font:     d.Font{Family: "Segoe UI", PointSize: 9},
 				Text: "Network diagnostic tool for IPv4, IPv6 and LLDP.  Made by vibe coding using Anthropic's Claude*.\r\n\r\n" +
 					"Software is licensed under the MIT license. If you have any suggestions, bug fixes or want to get in touch visit: https://github.com/bruijnes/.\r\n\r\n" +
 					"* Claude is a trademark of Anthropic, PBC.",
@@ -779,7 +779,7 @@ func runGUI() {
 			syncUI(func() { llIf.SetModel(devs) })
 		}
 	}()
-	// DHCP-interfacelijst uit de echte NIC's (werkt zonder Npcap)
+	// DHCP-interfacelijst uit de echte NIC's
 	{
 		items := []string{"(automatisch)"}
 		for _, ic := range usableIPv4Ifaces() {

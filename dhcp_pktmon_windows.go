@@ -15,7 +15,7 @@ import (
 
 // dhcpProbePktmon verstuurt een broadcast DISCOVER via een gewone UDP-socket en
 // vangt de OFFER/ACK op met de ingebouwde Windows Packet Monitor (pktmon) — net als
-// de LLDP-capture, dus zonder Npcap. De OFFER komt op poort 68 binnen (die de
+// de LLDP-capture, dus volledig met boordmiddelen. De OFFER komt op poort 68 binnen (die de
 // DHCP-Clientservice bezit), maar pktmon ziet het frame op de draad. Vereist
 // Administrator. De responstijd komt uit de pcapng-tijdstempels.
 func dhcpProbePktmon(o dhcpOpts) (dhcpResult, error) {
@@ -50,13 +50,13 @@ func dhcpProbePktmon(o dhcpOpts) (dhcpResult, error) {
 	os.Remove(etl)
 	os.Remove(png)
 
-	exec.Command("pktmon", "stop").Run()
-	start := exec.Command("pktmon", "start", "--capture", "--pkt-size", "0", "--file-name", etl)
+	hidden("pktmon", "stop").Run()
+	start := hidden("pktmon", "start", "--capture", "--pkt-size", "0", "--file-name", etl)
 	if out, err := start.CombinedOutput(); err != nil {
 		return dhcpResult{}, fmt.Errorf("pktmon start faalde (Administrator nodig?): %s", trimOut(out))
 	}
 	// stop-capture wordt sowieso uitgevoerd voordat we parsen
-	defer exec.Command("pktmon", "stop").Run()
+	defer hidden("pktmon", "stop").Run()
 
 	// even wachten zodat de capture zeker loopt voordat we zenden
 	time.Sleep(150 * time.Millisecond)
@@ -99,8 +99,8 @@ func dhcpProbePktmon(o dhcpOpts) (dhcpResult, error) {
 	conn.Close()
 
 	// capture stoppen, converteren en parsen
-	exec.Command("pktmon", "stop").Run()
-	conv := exec.Command("pktmon", "pcapng", etl, "-o", png)
+	hidden("pktmon", "stop").Run()
+	conv := hidden("pktmon", "pcapng", etl, "-o", png)
 	if out, err := conv.CombinedOutput(); err != nil {
 		return dhcpResult{}, fmt.Errorf("pktmon pcapng-conversie faalde: %s", trimOut(out))
 	}

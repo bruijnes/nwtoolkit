@@ -184,12 +184,13 @@ type dhcpResult struct {
 	serverID net.IP
 	msgType  byte
 	info6    string // gevuld bij DHCPv6 (bijv. "REPLY")
-	method   string // welke opvangmethode: "Npcap", "pktmon", "UDP"
+	method   string // welke opvangmethode: "INFORM", "pktmon", "UDP"
 }
 
 // dhcpProbeUDP verstuurt via een gewone UDP-socket één DISCOVER (broadcast) of
 // INFORM (unicast) en wacht op OFFER/ACK. Op Windows is dit onbetrouwbaar omdat de
-// DHCP-Clientservice poort 68 bezit; daar gebruikt dhcpProbe daarom Npcap (L2).
+// DHCP-Clientservice poort 68 bezit; daar kiest dhcpProbe daarom eerst de unicast
+// INFORM naar de server die Windows al kent, en anders de ingebouwde pktmon.
 func dhcpProbeUDP(o dhcpOpts) (dhcpResult, error) {
 	localIP, mac, err := localAddrFor(o.server, o.iface)
 	if err != nil {

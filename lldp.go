@@ -15,9 +15,9 @@ import (
 // LLDP EtherType en multicast-bestemming.
 const lldpEtherType = 0x88cc
 
-// errNoNpcap betekent dat wpcap.dll (Npcap) ontbreekt; dan proberen we de
+// errNoLiveCapture betekent dat dit platform geen live laag-2-capture heeft; dan
 // ingebouwde pktmon-route (alleen Windows).
-var errNoNpcap = errors.New("Npcap niet gevonden (wpcap.dll ontbreekt). Installeer Npcap van https://npcap.com, of de tool valt terug op de ingebouwde pktmon (Administrator nodig)")
+var errNoLiveCapture = errors.New("dit platform heeft geen live laag-2-capture; de ingebouwde pktmon wordt gebruikt (Administrator nodig)")
 
 // errPktmonUnsupported: geen pktmon-terugval op dit platform.
 var errPktmonUnsupported = errors.New("pktmon niet beschikbaar op dit platform")
@@ -39,7 +39,7 @@ type lldpNeighbor struct {
 
 func (n lldpNeighbor) key() string { return n.ChassisID + "|" + n.PortID }
 
-// capturer is de platform-specifieke L2-capture (Linux AF_PACKET / Windows Npcap).
+// capturer is de platform-specifieke L2-capture (Linux AF_PACKET; Windows gebruikt pktmon).
 type capturer interface {
 	next(timeout time.Duration) (frame []byte, err error)
 	device() string
@@ -286,8 +286,8 @@ func cmdLLDP(o lldpOpts) {
 		return
 	}
 	if err != nil {
-		// Geen Npcap? Probeer de ingebouwde pktmon-route (Windows).
-		if errors.Is(err, errNoNpcap) {
+		// Geen live capture? Gebruik de ingebouwde pktmon-route (Windows).
+		if errors.Is(err, errNoLiveCapture) {
 			perr := tryPktmon(o)
 			if perr == nil {
 				return
@@ -320,7 +320,7 @@ func cmdLLDP(o lldpOpts) {
 		}
 		if !o.monitor && time.Now().After(deadline) && len(neighbors) == 0 {
 			fmt.Println(col(cYellow, "\nGeen LLDP-frames ontvangen binnen de wachttijd."))
-			fmt.Println(col(cGrey, "Mogelijk staat LLDP uit op de switch, of het is een niet-beheerde switch. (Op Windows: Npcap + Administrator nodig.)"))
+			fmt.Println(col(cGrey, "Mogelijk staat LLDP uit op de switch, of het is een niet-beheerde switch. (Op Windows: als Administrator starten.)"))
 			return
 		}
 
@@ -369,8 +369,8 @@ func finishLLDPquiet(neighbors map[string]*lldpNeighbor, n int) {}
 func lldpOnce(hint string, wait time.Duration) ([]*lldpNeighbor, string, error) {
 	cap, _, err := openLLDP(hint)
 	if err != nil {
-		// Geen Npcap? Val terug op de ingebouwde pktmon (Windows, Administrator).
-		if errors.Is(err, errNoNpcap) {
+		// Geen live capture? Val terug op de ingebouwde pktmon (Windows, Administrator).
+		if errors.Is(err, errNoLiveCapture) {
 			nbs, perr := pktmonCollect(wait)
 			if perr == nil {
 				return sortedNeighbors(nbs), "pktmon", nil

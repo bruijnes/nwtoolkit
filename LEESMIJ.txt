@@ -68,12 +68,12 @@ LLDP-buur
   nwtoolkit lldp           → toont de aangesloten switch/poort
   nwtoolkit lldp -l        → toon beschikbare interfaces
   nwtoolkit lldp -i Ethernet -w 40   → kies interface + wachttijd
-  nwtoolkit lldp -m        → blijf monitoren (Windows: vereist Npcap)
+  nwtoolkit lldp -m        → blijf monitoren (Windows: als Administrator)
 
   Windows kan geen ruwe L2-frames in userland opvangen zonder driver.
-  De tool gebruikt daarom automatisch de INGEBOUWDE pktmon (Administrator
-  nodig, geen installatie). Voor de -m monitormodus of realtime capture
-  installeer je Npcap (https://npcap.com); de tool pakt die dan vanzelf.
+  De tool gebruikt daarom altijd de INGEBOUWDE pktmon (Packet Monitor).
+  Die zit standaard in Windows 10 en 11, hoeft niet geinstalleerd te worden
+  en vereist geen Npcap of andere externe driver. Wel Administrator.
   Start de exe dus als Administrator voor LLDP.
 
 Web-UI

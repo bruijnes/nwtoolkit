@@ -61,7 +61,7 @@ Commando's:
       -i <naam>    kies interface (deel van naam/omschrijving)
       -w <sec>     wachttijd voor eenmalige capture (standaard 35)
       -m           blijf monitoren
-      (Windows: gebruikt de ingebouwde pktmon; -m vereist Npcap)
+      (Windows: gebruikt de ingebouwde pktmon; Administrator nodig)
 
   web    [adres]             web-UI (standaard 127.0.0.1:8733)
 

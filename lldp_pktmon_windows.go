@@ -11,7 +11,7 @@ import (
 )
 
 // pktmonCollect vangt LLDP-frames met de ingebouwde Windows Packet Monitor (pktmon).
-// Driverloos — geen Npcap nodig — maar vereist Administrator. Batch-gewijs:
+// Volledig op boordmiddelen — geen externe driver — maar vereist Administrator. Batch-gewijs:
 // start capture, wacht, stop, converteer naar pcapng, parse.
 func pktmonCollect(wait time.Duration) (map[string]*lldpNeighbor, error) {
 	if _, err := exec.LookPath("pktmon"); err != nil {
@@ -26,17 +26,17 @@ func pktmonCollect(wait time.Duration) (map[string]*lldpNeighbor, error) {
 	os.Remove(etl)
 	os.Remove(png)
 
-	exec.Command("pktmon", "stop").Run() // eventuele vorige sessie opruimen
+	hidden("pktmon", "stop").Run() // eventuele vorige sessie opruimen
 
-	start := exec.Command("pktmon", "start", "--capture", "--pkt-size", "0", "--file-name", etl)
+	start := hidden("pktmon", "start", "--capture", "--pkt-size", "0", "--file-name", etl)
 	if out, err := start.CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("pktmon start faalde (Administrator nodig?): %s", trimOut(out))
 	}
 
 	time.Sleep(wait)
-	exec.Command("pktmon", "stop").Run()
+	hidden("pktmon", "stop").Run()
 
-	conv := exec.Command("pktmon", "pcapng", etl, "-o", png)
+	conv := hidden("pktmon", "pcapng", etl, "-o", png)
 	if out, err := conv.CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("pktmon pcapng-conversie faalde: %s", trimOut(out))
 	}
@@ -67,7 +67,7 @@ func trimOut(b []byte) string {
 
 // tryPktmon is de console-variant: opnemen en tonen (met -m in een lus).
 func tryPktmon(o lldpOpts) error {
-	fmt.Printf("%s  Npcap niet gevonden — gebruikt de ingebouwde pktmon (Administrator nodig).\n", col(cBold, "nwtoolkit"))
+	fmt.Printf("%s  gebruikt de ingebouwde pktmon (Administrator nodig).\n", col(cBold, "nwtoolkit"))
 	for {
 		fmt.Printf("%s\n", col(cGrey, fmt.Sprintf("Opnemen gedurende %s…", o.wait)))
 		neighbors, err := pktmonCollect(o.wait)

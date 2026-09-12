@@ -9,11 +9,11 @@ func openBrowser(url string) {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+		cmd = hidden("rundll32", "url.dll,FileProtocolHandler", url)
 	case "darwin":
-		cmd = exec.Command("open", url)
+		cmd = hidden("open", url)
 	default:
-		cmd = exec.Command("xdg-open", url)
+		cmd = hidden("xdg-open", url)
 	}
 	_ = cmd.Start()
 }
@@ -139,7 +139,7 @@ th{color:var(--mut);font-weight:500}
    <div><label>Wachttijd (s)</label><input id="ll_wait" value="35" style="width:90px"></div>
    <button class="go" onclick="lldpGo()">Zoek buur</button>
   </div>
-  <div class="hint">Vraagt de aangesloten switch/poort op via LLDP. Kan tot ~30 s duren (LLDP wordt periodiek verstuurd). Windows zonder Npcap: gebruik het console-commando <code>nwtoolkit lldp</code> (pktmon, Administrator).</div>
+  <div class="hint">Vraagt de aangesloten switch/poort op via LLDP. Kan tot ~30 s duren (LLDP wordt periodiek verstuurd). Op Windows loopt dit via de ingebouwde pktmon, dus start als Administrator.</div>
   <div id="ll_out"></div>
  </div>
 </section>

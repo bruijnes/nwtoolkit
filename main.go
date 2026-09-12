@@ -49,7 +49,9 @@ Commando's:
 
   dhcp                       DHCP-responstijd meten + grafiek
       -s <server>  DHCP-server-IP (unicast INFORM, geen admin nodig)
-                   leeg = broadcast DISCOVER op poort 68 (vereist Administrator)
+                   leeg = automatisch: INFORM naar de server die Windows al kent
+      -b           broadcast DISCOVER forceren, alsof dit netwerk onbekend is;
+                   toont elke server die antwoordt (Windows: als Administrator)
       -6           DHCPv6 (INFORMATION-REQUEST; multicast of -s <server>)
       -1           eenmalige meting
       -m           continu-monitor met live grafiek (standaard)
@@ -244,7 +246,7 @@ func runDNS(args []string, speed bool) {
 }
 
 func runDHCP(args []string) {
-	_, rest := splitArgs(args, map[string]bool{"1": true, "m": true, "6": true})
+	_, rest := splitArgs(args, map[string]bool{"1": true, "m": true, "6": true, "b": true})
 	fs := flag.NewFlagSet("dhcp", flag.ExitOnError)
 	s := fs.String("s", "", "server ip")
 	one := fs.Bool("1", false, "eenmalig")
@@ -253,8 +255,9 @@ func runDHCP(args []string) {
 	c := fs.Int("c", 0, "vast aantal")
 	port := fs.Int("port", 0, "lokale poort")
 	six := fs.Bool("6", false, "DHCPv6 gebruiken")
+	b := fs.Bool("b", false, "broadcast DISCOVER forceren")
 	fs.Parse(rest)
-	o := dhcpOpts{server: *s, timeout: 3 * time.Second, monitor: *m && !*one, interval: dur(*i), count: *c, port: *port, ipv6: *six}
+	o := dhcpOpts{server: *s, timeout: 3 * time.Second, monitor: *m && !*one, interval: dur(*i), count: *c, port: *port, ipv6: *six, discover: *b}
 	if *c > 0 {
 		o.monitor = false
 	}

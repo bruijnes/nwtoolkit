@@ -24,12 +24,17 @@ func dhcpProbe(o dhcpOpts) (dhcpResult, error) {
 	}
 
 	// De gebruiker gaf zelf een server op: rechtstreeks unicast INFORM.
-	if o.server != "" {
+	if o.server != "" && !o.discover {
 		res, err := dhcpProbeUDP(o)
 		if err == nil && res.method == "" {
 			res.method = "INFORM"
 		}
 		return res, err
+	}
+
+	// Expliciete broadcast DISCOVER: doe alsof we dit netwerk niet kennen.
+	if o.discover {
+		return dhcpDiscoverBroadcast(o)
 	}
 
 	lease, lerr := leaseFor(o.iface, o.srcIP)
@@ -94,4 +99,48 @@ func leaseHint(l dhcpLease, err error) string {
 	}
 	b.WriteString("\nDe server antwoordt niet op een INFORM; start als Administrator voor de pktmon-meting.")
 	return b.String()
+}
+
+// dhcpDiscoverBroadcast doet wat een kaal toestel doet dat net op een onbekend
+// netwerk wordt aangesloten: een broadcast DISCOVER naar 255.255.255.255, zonder
+// enige voorkennis van servers. Het antwoord komt terug op poort 68, die op
+// Windows van de DHCP-Clientservice is en door de firewall wordt afgeschermd,
+// dus de betrouwbare weg is de ingebouwde Packet Monitor. Die vereist
+// Administrator; zonder die rechten wordt de gewone socket geprobeerd.
+func dhcpDiscoverBroadcast(o dhcpOpts) (dhcpResult, error) {
+	b := o
+	b.server = "" // geen voorkennis
+	if b.port == 0 {
+		b.port = 68
+	}
+
+	elevated := isElevated()
+	var perr error
+	if elevated {
+		res, err := dhcpProbePktmon(b)
+		if err == nil {
+			return res, nil
+		}
+		perr = err
+	}
+
+	// Zonder verhoogde rechten (of als pktmon faalde) blijft de gewone socket over.
+	res, uerr := dhcpProbeUDP(b)
+	if uerr == nil {
+		if res.method == "" {
+			res.method = "broadcast DISCOVER"
+		}
+		return res, nil
+	}
+
+	if !elevated {
+		return dhcpResult{}, fmt.Errorf("broadcast DISCOVER kreeg geen antwoord: %v"+
+			" — het OFFER komt binnen op poort 68, die van de Windows DHCP-Clientservice is"+
+			" en door de firewall wordt afgeschermd. Start als Administrator; dan vangt de"+
+			" ingebouwde pktmon het frame wél op", uerr)
+	}
+	if perr != nil && errors.Is(perr, errPktmonUnsupported) {
+		return dhcpResult{}, fmt.Errorf("broadcast DISCOVER kreeg geen antwoord: %v — pktmon is op deze Windows-versie niet beschikbaar", uerr)
+	}
+	return dhcpResult{}, fmt.Errorf("broadcast DISCOVER kreeg geen antwoord: %v", perr)
 }

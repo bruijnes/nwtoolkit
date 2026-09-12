@@ -85,7 +85,7 @@ func cmdWeb(addr string) {
 	// één DHCP-meting
 	mux.HandleFunc("/api/dhcp", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
-		o := dhcpOpts{server: q.Get("server"), iface: q.Get("iface"), timeout: 3 * time.Second, port: qInt(r, "port", 0), ipv6: q.Get("v6") == "1"}
+		o := dhcpOpts{server: q.Get("server"), iface: q.Get("iface"), timeout: 3 * time.Second, port: qInt(r, "port", 0), ipv6: q.Get("v6") == "1", discover: q.Get("discover") == "1"}
 		res, err := dhcpProbe(o)
 		out := map[string]any{}
 		if err != nil {
@@ -95,6 +95,13 @@ func cmdWeb(addr string) {
 			out["ok"] = true
 			out["rtt_ms"] = float64(res.rtt.Microseconds()) / 1000
 			out["server"] = res.serverID.String()
+			if len(res.servers) > 1 {
+				all := make([]string, len(res.servers))
+				for i, v := range res.servers {
+					all[i] = v.String()
+				}
+				out["servers"] = all
+			}
 			if res.yiaddr != nil && !res.yiaddr.Equal(net.IPv4zero) {
 				out["offer"] = res.yiaddr.String()
 			}

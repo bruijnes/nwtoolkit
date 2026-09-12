@@ -111,7 +111,11 @@ func dhcpProbePktmon(o dhcpOpts) (dhcpResult, error) {
 	os.Remove(etl)
 	os.Remove(png)
 
+	// De hele capture wordt doorlopen, niet tot het eerste antwoord: op een
+	// onbekend netwerk wil je juist weten of er méér dan één DHCP-server reageert.
 	var reqTS int64
+	var res dhcpResult
+	got := false
 	for _, fr := range parsePcapngTS(data) {
 		mt, yi, sid, ok, dir := classifyDHCPFrame(fr.data, xid)
 		if !ok {
@@ -121,7 +125,10 @@ func dhcpProbePktmon(o dhcpOpts) (dhcpResult, error) {
 			reqTS = fr.tsNanos
 			continue
 		}
-		if dir == dhcpToClient && (mt == dhcpOffer || mt == dhcpAck) {
+		if dir != dhcpToClient || (mt != dhcpOffer && mt != dhcpAck) {
+			continue
+		}
+		if !got {
 			base := t0.UnixNano()
 			if reqTS != 0 {
 				base = reqTS
@@ -130,8 +137,13 @@ func dhcpProbePktmon(o dhcpOpts) (dhcpResult, error) {
 			if rtt < 0 {
 				rtt = 0
 			}
-			return dhcpResult{rtt: rtt, yiaddr: yi, serverID: sid, msgType: mt, method: "pktmon"}, nil
+			res = dhcpResult{rtt: rtt, yiaddr: yi, serverID: sid, msgType: mt, method: "pktmon"}
+			got = true
 		}
+		res.addServer(sid)
+	}
+	if got {
+		return res, nil
 	}
 	return dhcpResult{}, fmt.Errorf("geen antwoord binnen %s (%s)", o.timeout, where)
 }

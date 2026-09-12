@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -18,6 +19,7 @@ type dhcpOpts struct {
 	count    int
 	port     int // lokale poort; 0 = auto (68 voor broadcast, ephemeral voor inform)
 	ipv6     bool
+	discover bool // forceer broadcast DISCOVER: doe alsof geen enkele server bekend is
 }
 
 // netIface beschrijft een bruikbare interface voor de DHCP-interfacekeuze.
@@ -183,8 +185,35 @@ type dhcpResult struct {
 	yiaddr   net.IP
 	serverID net.IP
 	msgType  byte
-	info6    string // gevuld bij DHCPv6 (bijv. "REPLY")
-	method   string // welke opvangmethode: "INFORM", "pktmon", "UDP"
+	info6    string   // gevuld bij DHCPv6 (bijv. "REPLY")
+	method   string   // welke opvangmethode: "INFORM", "pktmon", "UDP"
+	servers  []net.IP // alle servers die binnen de timeout antwoordden (broadcast DISCOVER)
+}
+
+// addServer voegt een server toe aan de lijst zonder dubbelen.
+func (r *dhcpResult) addServer(ip net.IP) {
+	if ip == nil {
+		return
+	}
+	for _, e := range r.servers {
+		if e.Equal(ip) {
+			return
+		}
+	}
+	r.servers = append(r.servers, ip)
+}
+
+// serverSummary beschrijft hoeveel servers antwoordden; bij meer dan één is dat
+// een rogue-DHCP-signaal en dus het vermelden waard.
+func (r dhcpResult) serverSummary() string {
+	if len(r.servers) < 2 {
+		return ""
+	}
+	names := make([]string, len(r.servers))
+	for i, s := range r.servers {
+		names[i] = s.String()
+	}
+	return fmt.Sprintf("%d servers antwoordden: %s", len(r.servers), strings.Join(names, ", "))
 }
 
 // dhcpProbeUDP verstuurt via een gewone UDP-socket één DISCOVER (broadcast) of
@@ -247,9 +276,14 @@ func dhcpProbeUDP(o dhcpOpts) (dhcpResult, error) {
 
 	conn.SetReadDeadline(time.Now().Add(o.timeout))
 	buf := make([]byte, 1500)
+	var res dhcpResult
+	got := false
 	for {
 		n, _, err := conn.ReadFromUDP(buf)
 		if err != nil {
+			if got {
+				return res, nil // deadline van het extra luistervenster
+			}
 			return dhcpResult{}, fmt.Errorf("geen antwoord binnen %s", o.timeout)
 		}
 		mt, yi, sid, ok := parseDHCP(buf[:n])
@@ -259,15 +293,36 @@ func dhcpProbeUDP(o dhcpOpts) (dhcpResult, error) {
 		if binary.BigEndian.Uint32(buf[4:8]) != xid {
 			continue // niet ons transactie-id
 		}
-		if mt == dhcpOffer || mt == dhcpAck {
-			return dhcpResult{rtt: time.Since(start), yiaddr: yi, serverID: sid, msgType: mt}, nil
+		if mt != dhcpOffer && mt != dhcpAck {
+			continue
 		}
+		if !got {
+			got = true
+			res = dhcpResult{rtt: time.Since(start), yiaddr: yi, serverID: sid, msgType: mt}
+			res.addServer(sid)
+			if !broadcast {
+				return res, nil // unicast INFORM: één antwoord is genoeg
+			}
+			// broadcast: nog even doorluisteren of er een tweede server antwoordt
+			extra := 400 * time.Millisecond
+			if rest := time.Until(start.Add(o.timeout)); rest < extra {
+				extra = rest
+			}
+			if extra <= 0 {
+				return res, nil
+			}
+			conn.SetReadDeadline(time.Now().Add(extra))
+			continue
+		}
+		res.addServer(sid)
 	}
 }
 
 func cmdDHCP(o dhcpOpts) {
 	method := "broadcast DISCOVER (poort 68)"
-	if o.ipv6 {
+	if o.discover {
+		method = "broadcast DISCOVER — alsof dit netwerk onbekend is"
+	} else if o.ipv6 {
 		method = "DHCPv6 INFORMATION-REQUEST (multicast ff02::1:2)"
 		if o.server != "" {
 			method = "DHCPv6 INFORMATION-REQUEST naar " + o.server
@@ -289,6 +344,9 @@ func cmdDHCP(o dhcpOpts) {
 			mt = "ACK"
 		}
 		fmt.Printf("Antwoord:   %s van server %s\n", mt, res.serverID)
+		if sum := res.serverSummary(); sum != "" {
+			fmt.Printf("Let op:     %s\n", col(cYellow, sum))
+		}
 		if !res.yiaddr.Equal(net.IPv4zero) && res.yiaddr != nil {
 			fmt.Printf("Aangeboden: %s\n", res.yiaddr)
 		}

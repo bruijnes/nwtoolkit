@@ -15,7 +15,16 @@ FUNCTIES
 4. DNS-speedtest   — meet de DNS-responstijd, eenmalig of elke 5 s continu
                      met een live ASCII-lijngrafiek.
 5. DHCP-speedtest  — meet hoe snel de DHCP-server reageert (OFFER/ACK),
-                     eenmalig of continu met grafiek.
+                     eenmalig of continu met grafiek. Twee methodes:
+                     Automatisch stuurt een unicast INFORM naar de server die
+                     Windows al kent; dat werkt zonder extra rechten.
+                     Broadcast DISCOVER negeert alle voorkennis en vraagt het
+                     netwerk zelf, zoals een apparaat dat net wordt
+                     aangesloten. Antwoorden er meerdere servers, dan worden ze
+                     allemaal getoond: dat is het signaal voor een ongewenste
+                     (rogue) DHCP-server. Broadcast vereist Administrator,
+                     omdat het antwoord op poort 68 binnenkomt en die van de
+                     Windows DHCP-Clientservice is.
 
 6. LLDP-buur     — toont welke switch en poort je aan de andere kant hangt
                      (systeemnaam, poort, VLAN, chassis-MAC, mgmt-adres, enz.).

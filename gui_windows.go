@@ -17,6 +17,7 @@ import (
 
 	"github.com/lxn/walk"
 	d "github.com/lxn/walk/declarative"
+	"github.com/lxn/win"
 )
 
 // writeCrash writes text to nwtoolkit-crash.log next to the exe, or in TEMP, and
@@ -324,6 +325,29 @@ func atof(s string, def float64) float64 {
 		return v
 	}
 	return def
+}
+
+// ensureElevated returns true when the process already runs as administrator.
+// Otherwise it offers, through a UAC prompt, to restart nwtoolkit elevated; on
+// consent it launches the elevated copy and exits this one. It returns false when
+// the user declines or the relaunch fails, so the caller can abort the action.
+func ensureElevated(reason string) bool {
+	if isElevated() {
+		return true
+	}
+	if walk.MsgBox(nil, "Administrator required",
+		reason+"\n\nRestart nwtoolkit as administrator?",
+		walk.MsgBoxYesNo|walk.MsgBoxIconQuestion) != win.IDYES {
+		return false
+	}
+	if err := relaunchAsAdmin([]string{"gui"}); err != nil {
+		walk.MsgBox(nil, "Could not restart",
+			"Restarting as administrator failed:\n"+err.Error(),
+			walk.MsgBoxIconError)
+		return false
+	}
+	os.Exit(0)
+	return false
 }
 
 // runGUI shows the native Windows window.
@@ -673,6 +697,9 @@ func runGUI() {
 					d.Label{Text: "Wait (s):"},
 					d.LineEdit{AssignTo: &llWait, Text: "35", MaxSize: d.Size{Width: 60}},
 					d.PushButton{Text: "Find neighbour", MinSize: d.Size{Width: 110}, OnClicked: func() {
+						if !ensureElevated("LLDP capture needs administrator rights.") {
+							return
+						}
 						hint := llIf.Text()
 						wait := dur(atof(llWait.Text(), 35))
 						llOut.SetText("Searching for LLDP frames… this can take up to ~30 s.\r\n")

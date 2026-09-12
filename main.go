@@ -75,6 +75,8 @@ Examples:
 
 func main() {
 	useColor = enableVT()
+	stripKeepOpen()
+	defer holdIfNeeded()
 
 	if len(os.Args) < 2 {
 		// Double-clicked from Explorer -> native Windows window (GUI).
@@ -262,6 +264,14 @@ func runLLDP(args []string) {
 	m := fs.Bool("m", false, "monitor (keep showing)")
 	l := fs.Bool("l", false, "list available interfaces")
 	fs.Parse(rest)
+	// LLDP capture needs elevated rights (pktmon on Windows). Offer to restart with
+	// a UAC prompt when we are not elevated and are actually going to capture.
+	if !*l && !isElevated() && promptRestartAsAdmin("LLDP capture") {
+		if err := relaunchAsAdmin(append(os.Args[1:], "-keepopen")); err != nil {
+			die("could not restart as administrator: %v", err)
+		}
+		return
+	}
 	cmdLLDP(lldpOpts{iface: *i, wait: dur(*w), monitor: *m, list: *l})
 }
 
@@ -348,4 +358,31 @@ func interactiveMenu() {
 		fmt.Print("\n  " + col(cGrey, "Press Enter to return to the menu…"))
 		in.ReadString('\n')
 	}
+}
+
+// stripKeepOpen removes the internal -keepopen marker from the argument list and
+// records that this run should pause before its window closes. relaunchAsAdmin adds
+// the marker so an elevated copy launched in a fresh console stays readable instead
+// of vanishing the moment the command finishes.
+func stripKeepOpen() {
+	out := os.Args[:0]
+	for _, a := range os.Args {
+		if a == "-keepopen" || a == "--keepopen" {
+			holdOnExit = true
+			continue
+		}
+		out = append(out, a)
+	}
+	os.Args = out
+}
+
+// promptRestartAsAdmin asks, on the console, whether to relaunch elevated. Returns
+// false at once when there is no console to read from.
+func promptRestartAsAdmin(what string) bool {
+	fmt.Printf("%s needs administrator rights. Restart as administrator? (y/n): ", what)
+	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	if err != nil && line == "" {
+		return false
+	}
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(line)), "y")
 }

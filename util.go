@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"math"
 	"net"
@@ -150,7 +151,21 @@ func (r *ring) push(v float64) {
 
 func die(format string, a ...any) {
 	fmt.Fprintf(os.Stderr, col(cRed, "error: ")+format+"\n", a...)
+	holdIfNeeded()
 	os.Exit(1)
+}
+
+// holdOnExit is set when this process was relaunched with -keepopen, i.e. an elevated
+// copy running in a fresh console that would otherwise close the instant it finishes.
+var holdOnExit bool
+
+// holdIfNeeded pauses so the output stays readable before such a window closes.
+func holdIfNeeded() {
+	if !holdOnExit {
+		return
+	}
+	fmt.Print("\nPress Enter to close\u2026")
+	bufio.NewReader(os.Stdin).ReadString('\n')
 }
 
 func nowStamp() string { return time.Now().Format("15:04:05") }

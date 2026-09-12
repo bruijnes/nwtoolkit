@@ -16,13 +16,13 @@ replace (
 require (
 	github.com/guptarohit/asciigraph v0.10.0
 	github.com/lxn/walk v0.0.0-20210112085537-c389da54e794
+	github.com/lxn/win v0.0.0-20210218163916-a377121e959e
 	github.com/miekg/dns v1.1.62
 	golang.org/x/net v0.35.0
 	golang.org/x/sys v0.30.0
 )
 
 require (
-	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	golang.org/x/mod v0.23.0 // indirect
 	golang.org/x/sync v0.11.0 // indirect
 	golang.org/x/tools v0.22.0 // indirect

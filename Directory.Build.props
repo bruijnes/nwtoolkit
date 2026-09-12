@@ -1,0 +1,21 @@
+<Project>
+  <!-- Settings shared by every project in the solution. -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <DebugType>embedded</DebugType>
+
+    <!-- One version for the whole product. Displayed in the window title and `nwtoolkit version`. -->
+    <Version>1.28</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Authors>Vincent Bruijnes</Authors>
+    <Company>Vincent Bruijnes</Company>
+    <Product>nwtoolkit</Product>
+    <Copyright>(c) Vincent Bruijnes</Copyright>
+    <Description>Network diagnostics: ping, traceroute, DNS, DHCP, LLDP</Description>
+  </PropertyGroup>
+</Project>

@@ -75,27 +75,29 @@ PowerShell `Unblock-File .\nwtoolkit.exe`.
 
 ## Build from source
 
-Requires Go 1.24 or newer.
+Requires the .NET 10 SDK. The solution has three projects:
 
 ```
-go build -ldflags "-s -w" -o nwtoolkit.exe .
+src/nwtoolkit.Core    all network logic, the command line and the text menu (cross-platform)
+src/nwtoolkit         the Windows executable: command line plus the native WinForms window
+tests/nwtoolkit.Tests unit tests (xunit)
 ```
 
-Cross-compiling from Linux or macOS works too:
+Build, test and publish a self-contained single-file exe that needs no .NET
+installation on the target machine:
 
 ```
-GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o nwtoolkit.exe .
+dotnet test tests/nwtoolkit.Tests
+dotnet publish src/nwtoolkit -c Release -o dist
 ```
 
-The manifest and version metadata are embedded through
-`resource_windows_amd64.syso`, generated from `versioninfo.json` with
-[goversioninfo](https://github.com/josephspurrier/goversioninfo). Regenerate it
-after changing `versioninfo.json`:
+The result is one `nwtoolkit.exe` of roughly 50 MB, because the .NET runtime and
+WinForms are bundled into it; that is what makes it run on a clean machine.
 
-```
-go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
-goversioninfo -64 -o resource_windows_amd64.syso versioninfo.json
-```
+The publish settings (win-x64, self-contained, single file) live in
+`src/nwtoolkit/nwtoolkit.csproj`, so the same command works from Windows, Linux
+or macOS. The icon, manifest and version metadata are embedded by the build; the
+version number is set once in `Directory.Build.props`.
 
 ## License
 

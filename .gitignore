@@ -1,10 +1,17 @@
 # Build-artefacten
 *.exe
 *.dll
-nwtoolkit
+/nwtoolkit
 nwtoolkit-crash.log
 
 # Go
 vendor/
 *.test
 *.out
+
+# .NET
+bin/
+obj/
+dist/
+*.user
+.vs/

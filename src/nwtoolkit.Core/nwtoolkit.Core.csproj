@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Everything that is not a window lives here: ping, traceroute, DNS, DHCP, LLDP,
+    the command line and the text menu. It targets plain net10.0 so it builds and
+    tests on any OS; the Windows-only parts (pktmon, elevation, console tricks) are
+    guarded with OperatingSystem.IsWindows().
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Nwtoolkit</RootNamespace>
+    <AssemblyName>nwtoolkit.Core</AssemblyName>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="nwtoolkit.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -23,26 +24,24 @@ func dhcpProbePktmon(o dhcpOpts) (dhcpResult, error) {
 		return dhcpResult{}, errPktmonUnsupported
 	}
 
-	mac := macForIP(o.srcIP)
-	if mac == nil {
-		var e error
-		if _, mac, e = localAddrFor("", o.iface); e != nil {
-			return dhcpResult{}, fmt.Errorf("lokaal adres bepalen: %w", e)
-		}
+	// De DISCOVER gaat over elke bruikbare interface, elk vanaf een socket die aan
+	// het adres van díe interface gebonden is. Een socket op 0.0.0.0 laat de keuze
+	// aan de routeringstabel, en die stuurt een limited broadcast naar de interface
+	// met de laagste metric — op een machine met een VPN- of virtuele adapter is dat
+	// vaak niet de kabel waar de switch aan hangt.
+	targets := broadcastTargets(o)
+	if len(targets) == 0 {
+		return dhcpResult{}, fmt.Errorf("geen bruikbare IPv4-interface gevonden")
 	}
-	bindIP := net.IPv4zero
-	if o.srcIP != nil {
-		bindIP = o.srcIP
+	names := make([]string, len(targets))
+	for i, t := range targets {
+		names[i] = t.name
 	}
-	where := "pktmon"
-	if o.srcIP != nil {
-		where = "pktmon via " + o.srcIP.String()
-	}
+	where := "pktmon via " + strings.Join(names, ", ")
 
 	var xidb [4]byte
 	rand.Read(xidb[:])
 	xid := binary.BigEndian.Uint32(xidb[:])
-	packet := buildDHCP(dhcpDiscover, xid, mac, net.IPv4zero, true)
 
 	dir := os.TempDir()
 	etl := filepath.Join(dir, "nwtoolkit_dhcp.etl")
@@ -61,42 +60,64 @@ func dhcpProbePktmon(o dhcpOpts) (dhcpResult, error) {
 	// even wachten zodat de capture zeker loopt voordat we zenden
 	time.Sleep(150 * time.Millisecond)
 
-	conn, err := dhcpListen(&net.UDPAddr{IP: bindIP, Port: 68}, true)
-	if err != nil {
-		return dhcpResult{}, fmt.Errorf("kan poort 68 niet openen (%v)", err)
-	}
 	dst := &net.UDPAddr{IP: net.IPv4bcast, Port: 67}
+	var conns []*net.UDPConn
+	var sendErrs []string
 	t0 := time.Now()
-	if _, err := conn.WriteToUDP(packet, dst); err != nil {
-		conn.Close()
-		return dhcpResult{}, fmt.Errorf("verzenden: %w", err)
+	for _, ifc := range targets {
+		c, err := dhcpListen(&net.UDPAddr{IP: ifc.ip, Port: 68}, true)
+		if err != nil {
+			sendErrs = append(sendErrs, fmt.Sprintf("%s: poort 68 niet te openen (%v)", ifc.name, err))
+			continue
+		}
+		mac := ifc.mac
+		if len(mac) != 6 {
+			mac = net.HardwareAddr{0x02, 0x00, 0x4e, 0x54, 0x00, 0x01}
+		}
+		if _, err := c.WriteToUDP(buildDHCP(dhcpDiscover, xid, mac, net.IPv4zero, true), dst); err != nil {
+			sendErrs = append(sendErrs, fmt.Sprintf("%s: verzenden mislukt (%v)", ifc.name, err))
+			c.Close()
+			continue
+		}
+		conns = append(conns, c)
 	}
-	// de socket mag ook meeluisteren — soms komt de OFFER er tóch doorheen
-	gotFromSock := make(chan dhcpResult, 1)
-	go func() {
-		conn.SetReadDeadline(time.Now().Add(o.timeout))
-		buf := make([]byte, 1500)
-		for {
-			n, _, e := conn.ReadFromUDP(buf)
-			if e != nil {
-				return
-			}
-			mt, yi, sid, ok := parseDHCP(buf[:n])
-			if ok && binary.BigEndian.Uint32(buf[4:8]) == xid && (mt == dhcpOffer || mt == dhcpAck) {
-				gotFromSock <- dhcpResult{rtt: time.Since(t0), yiaddr: yi, serverID: sid, msgType: mt, method: "socket"}
-				return
-			}
+	if len(conns) == 0 {
+		return dhcpResult{}, fmt.Errorf("DISCOVER kon nergens verstuurd worden: %s", strings.Join(sendErrs, "; "))
+	}
+	defer func() {
+		for _, c := range conns {
+			c.Close()
 		}
 	}()
+
+	// de sockets mogen ook meeluisteren — soms komt de OFFER er tóch doorheen
+	gotFromSock := make(chan dhcpResult, len(conns))
+	for _, c := range conns {
+		go func(conn *net.UDPConn) {
+			conn.SetReadDeadline(time.Now().Add(o.timeout))
+			buf := make([]byte, 1500)
+			for {
+				n, _, e := conn.ReadFromUDP(buf)
+				if e != nil {
+					return
+				}
+				mt, yi, sid, ok := parseDHCP(buf[:n])
+				if ok && binary.BigEndian.Uint32(buf[4:8]) == xid && (mt == dhcpOffer || mt == dhcpAck) {
+					r := dhcpResult{rtt: time.Since(t0), yiaddr: yi, serverID: sid, msgType: mt, method: "socket"}
+					r.addServer(sid)
+					gotFromSock <- r
+					return
+				}
+			}
+		}(c)
+	}
 
 	// wachten op het antwoord (capturevenster)
 	select {
 	case r := <-gotFromSock:
-		conn.Close()
 		return r, nil
 	case <-time.After(o.timeout):
 	}
-	conn.Close()
 
 	// capture stoppen, converteren en parsen
 	hidden("pktmon", "stop").Run()
@@ -185,8 +206,17 @@ func classifyDHCPFrame(f []byte, xid uint32) (msgType byte, yiaddr, serverID net
 		return 0, nil, nil, false, 0
 	}
 	payload := f[udp+8:]
+	if len(payload) < 240 || binary.BigEndian.Uint32(payload[4:8]) != xid {
+		return 0, nil, nil, false, 0
+	}
+	// Ons eigen verzoek is een BOOTREQUEST (op 1); parseDHCP accepteert alleen
+	// antwoorden (op 2). Het uitgaande frame moet hier apart herkend worden,
+	// anders lijkt het alsof het verzoek de adapter nooit heeft verlaten.
+	if payload[0] == 1 {
+		return 0, nil, nil, true, dhcpToServer
+	}
 	mt, yi, sid, valid := parseDHCP(payload)
-	if !valid || len(payload) < 8 || binary.BigEndian.Uint32(payload[4:8]) != xid {
+	if !valid {
 		return 0, nil, nil, false, 0
 	}
 	return mt, yi, sid, true, dir

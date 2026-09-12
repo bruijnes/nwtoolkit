@@ -7,31 +7,24 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 )
 
-// dhcpProbePktmon verstuurt een broadcast DISCOVER via een gewone UDP-socket en
-// vangt de OFFER/ACK op met de ingebouwde Windows Packet Monitor (pktmon) — net als
-// de LLDP-capture, dus volledig met boordmiddelen. De OFFER komt op poort 68 binnen (die de
-// DHCP-Clientservice bezit), maar pktmon ziet het frame op de draad. Vereist
-// Administrator. De responstijd komt uit de pcapng-tijdstempels.
+// dhcpProbePktmon sends a broadcast DISCOVER over an ordinary UDP socket and
+// captures the OFFER or ACK with the built-in Windows Packet Monitor (pktmon), just
+// like the LLDP capture, so entirely with what Windows ships. The OFFER arrives on
+// port 68, owned by the DHCP Client service, but pktmon sees the frame on the wire.
+// Requires Administrator. The response time comes from the pcapng timestamps.
 func dhcpProbePktmon(o dhcpOpts) (dhcpResult, error) {
-	if _, err := exec.LookPath("pktmon"); err != nil {
-		return dhcpResult{}, errPktmonUnsupported
-	}
-
-	// De DISCOVER gaat over elke bruikbare interface, elk vanaf een socket die aan
-	// het adres van díe interface gebonden is. Een socket op 0.0.0.0 laat de keuze
-	// aan de routeringstabel, en die stuurt een limited broadcast naar de interface
-	// met de laagste metric — op een machine met een VPN- of virtuele adapter is dat
-	// vaak niet de kabel waar de switch aan hangt.
+	// The DISCOVER goes out over every usable interface, each from a socket bound to
+	// that interface's own address. A socket on 0.0.0.0 leaves the choice to the
+	// routing table, which sends a limited broadcast to the interface with the lowest
+	// metric — on a machine with a VPN or virtual adapter that is often not the cable
+	// the switch is on.
 	targets := broadcastTargets(o)
 	if len(targets) == 0 {
-		return dhcpResult{}, fmt.Errorf("geen bruikbare IPv4-interface gevonden")
+		return dhcpResult{}, fmt.Errorf("no usable IPv4 interface found")
 	}
 	names := make([]string, len(targets))
 	for i, t := range targets {
@@ -43,97 +36,56 @@ func dhcpProbePktmon(o dhcpOpts) (dhcpResult, error) {
 	rand.Read(xidb[:])
 	xid := binary.BigEndian.Uint32(xidb[:])
 
-	dir := os.TempDir()
-	etl := filepath.Join(dir, "nwtoolkit_dhcp.etl")
-	png := filepath.Join(dir, "nwtoolkit_dhcp.pcapng")
-	os.Remove(etl)
-	os.Remove(png)
+	var t0 time.Time
+	var sendErr error
+	var fromSocket *dhcpResult
 
-	hidden("pktmon", "stop").Run()
-	start := hidden("pktmon", "start", "--capture", "--pkt-size", "0", "--file-name", etl)
-	if out, err := start.CombinedOutput(); err != nil {
-		return dhcpResult{}, fmt.Errorf("pktmon start faalde (Administrator nodig?): %s", trimOut(out))
-	}
-	// stop-capture wordt sowieso uitgevoerd voordat we parsen
-	defer hidden("pktmon", "stop").Run()
+	data, err := pktmonCapture("dhcp", func() bool {
+		time.Sleep(pktmonSettleDelay)
 
-	// even wachten zodat de capture zeker loopt voordat we zenden
-	time.Sleep(150 * time.Millisecond)
-
-	dst := &net.UDPAddr{IP: net.IPv4bcast, Port: 67}
-	var conns []*net.UDPConn
-	var sendErrs []string
-	t0 := time.Now()
-	for _, ifc := range targets {
-		c, err := dhcpListen(&net.UDPAddr{IP: ifc.ip, Port: 68}, true)
-		if err != nil {
-			sendErrs = append(sendErrs, fmt.Sprintf("%s: poort 68 niet te openen (%v)", ifc.name, err))
-			continue
+		conns, errs := sendDiscover(targets, xid)
+		if len(conns) == 0 {
+			sendErr = fmt.Errorf("DISCOVER could not be sent anywhere: %s", strings.Join(errs, "; "))
+			return false
 		}
-		mac := ifc.mac
-		if len(mac) != 6 {
-			mac = net.HardwareAddr{0x02, 0x00, 0x4e, 0x54, 0x00, 0x01}
-		}
-		if _, err := c.WriteToUDP(buildDHCP(dhcpDiscover, xid, mac, net.IPv4zero, true), dst); err != nil {
-			sendErrs = append(sendErrs, fmt.Sprintf("%s: verzenden mislukt (%v)", ifc.name, err))
-			c.Close()
-			continue
-		}
-		conns = append(conns, c)
-	}
-	if len(conns) == 0 {
-		return dhcpResult{}, fmt.Errorf("DISCOVER kon nergens verstuurd worden: %s", strings.Join(sendErrs, "; "))
-	}
-	defer func() {
-		for _, c := range conns {
-			c.Close()
-		}
-	}()
-
-	// de sockets mogen ook meeluisteren — soms komt de OFFER er tóch doorheen
-	gotFromSock := make(chan dhcpResult, len(conns))
-	for _, c := range conns {
-		go func(conn *net.UDPConn) {
-			conn.SetReadDeadline(time.Now().Add(o.timeout))
-			buf := make([]byte, 1500)
-			for {
-				n, _, e := conn.ReadFromUDP(buf)
-				if e != nil {
-					return
-				}
-				mt, yi, sid, ok := parseDHCP(buf[:n])
-				if ok && binary.BigEndian.Uint32(buf[4:8]) == xid && (mt == dhcpOffer || mt == dhcpAck) {
-					r := dhcpResult{rtt: time.Since(t0), yiaddr: yi, serverID: sid, msgType: mt, method: "socket"}
-					r.addServer(sid)
-					gotFromSock <- r
-					return
-				}
+		t0 = time.Now()
+		defer func() {
+			for _, c := range conns {
+				c.Close()
 			}
-		}(c)
-	}
+		}()
 
-	// wachten op het antwoord (capturevenster)
-	select {
-	case r := <-gotFromSock:
-		return r, nil
-	case <-time.After(o.timeout):
+		// The sockets listen along as well: sometimes the OFFER does get through, and
+		// then there is no need to convert and parse the capture at all.
+		answers := make(chan dhcpResult, len(conns))
+		for _, c := range conns {
+			go func(conn *net.UDPConn) {
+				if r, err := collectAnswers(conn, xid, t0, o.timeout, false, ""); err == nil {
+					r.method = "socket"
+					answers <- r
+				}
+			}(c)
+		}
+		select {
+		case r := <-answers:
+			fromSocket = &r
+			return false
+		case <-time.After(o.timeout):
+			return true
+		}
+	})
+	if sendErr != nil {
+		return dhcpResult{}, sendErr
 	}
-
-	// capture stoppen, converteren en parsen
-	hidden("pktmon", "stop").Run()
-	conv := hidden("pktmon", "pcapng", etl, "-o", png)
-	if out, err := conv.CombinedOutput(); err != nil {
-		return dhcpResult{}, fmt.Errorf("pktmon pcapng-conversie faalde: %s", trimOut(out))
+	if fromSocket != nil {
+		return *fromSocket, nil
 	}
-	data, err := os.ReadFile(png)
 	if err != nil {
-		return dhcpResult{}, fmt.Errorf("pcapng lezen: %w", err)
+		return dhcpResult{}, err
 	}
-	os.Remove(etl)
-	os.Remove(png)
 
-	// De hele capture wordt doorlopen, niet tot het eerste antwoord: op een
-	// onbekend netwerk wil je juist weten of er méér dan één DHCP-server reageert.
+	// The whole capture is scanned rather than stopping at the first answer: on an
+	// unknown network you specifically want to know if more than one server responds.
 	var reqTS int64
 	var res dhcpResult
 	got := false
@@ -172,8 +124,35 @@ func dhcpProbePktmon(o dhcpOpts) (dhcpResult, error) {
 	if got {
 		return res, nil
 	}
-	return dhcpResult{}, fmt.Errorf("geen antwoord binnen %s (%s) — %s",
+	return dhcpResult{}, fmt.Errorf("no answer within %s (%s) — %s",
 		o.timeout, where, captureDiag(len(data), len(frames), nDHCP, nOurs, reqTS != 0))
+}
+
+// sendDiscover opens one socket per interface, bound to that interface's own
+// address, and broadcasts a DISCOVER from each. It returns the sockets that are
+// listening plus a message for every interface that could not be used.
+func sendDiscover(targets []netIface, xid uint32) ([]*net.UDPConn, []string) {
+	dst := &net.UDPAddr{IP: net.IPv4bcast, Port: 67}
+	var conns []*net.UDPConn
+	var errs []string
+	for _, ifc := range targets {
+		c, err := dhcpListen(&net.UDPAddr{IP: ifc.ip, Port: 68}, true)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("%s: cannot open port 68 (%v)", ifc.name, err))
+			continue
+		}
+		mac := ifc.mac
+		if len(mac) != 6 {
+			mac = net.HardwareAddr{0x02, 0x00, 0x4e, 0x54, 0x00, 0x01}
+		}
+		if _, err := c.WriteToUDP(buildDHCP(dhcpDiscover, xid, mac, net.IPv4zero, true), dst); err != nil {
+			errs = append(errs, fmt.Sprintf("%s: sending failed (%v)", ifc.name, err))
+			c.Close()
+			continue
+		}
+		conns = append(conns, c)
+	}
+	return conns, errs
 }
 
 const (
@@ -181,8 +160,8 @@ const (
 	dhcpToClient = 2 // 67 → 68
 )
 
-// classifyDHCPFrame ontleedt een ruw Ethernet-frame tot een DHCP-bericht en bepaalt
-// de richting; dir is 0 als het geen bruikbaar DHCP-frame met ons xid is.
+// classifyDHCPFrame parses a raw Ethernet frame into a DHCP message and determines
+// its direction; dir is 0 if it is not a usable DHCP frame carrying our xid.
 func classifyDHCPFrame(f []byte, xid uint32) (msgType byte, yiaddr, serverID net.IP, ok bool, dir int) {
 	if len(f) < 14+20+8+240 {
 		return 0, nil, nil, false, 0
@@ -209,9 +188,9 @@ func classifyDHCPFrame(f []byte, xid uint32) (msgType byte, yiaddr, serverID net
 	if len(payload) < 240 || binary.BigEndian.Uint32(payload[4:8]) != xid {
 		return 0, nil, nil, false, 0
 	}
-	// Ons eigen verzoek is een BOOTREQUEST (op 1); parseDHCP accepteert alleen
-	// antwoorden (op 2). Het uitgaande frame moet hier apart herkend worden,
-	// anders lijkt het alsof het verzoek de adapter nooit heeft verlaten.
+	// Our own request is a BOOTREQUEST (op 1); parseDHCP only accepts replies (op 2).
+	// The outgoing frame has to be recognised separately here, otherwise it looks as
+	// though the request never left the adapter.
 	if payload[0] == 1 {
 		return 0, nil, nil, true, dhcpToServer
 	}
@@ -222,8 +201,8 @@ func classifyDHCPFrame(f []byte, xid uint32) (msgType byte, yiaddr, serverID net
 	return mt, yi, sid, true, dir
 }
 
-// isDHCPFrame zegt of een ruw Ethernet-frame UDP-verkeer op poort 67 of 68 is,
-// ongeacht transactie-id. Gebruikt om te kunnen zeggen wát pktmon wél zag.
+// isDHCPFrame reports whether a raw Ethernet frame is UDP traffic on port 67 or 68,
+// regardless of transaction id. Used to report what pktmon did see.
 func isDHCPFrame(f []byte) bool {
 	if len(f) < 14+20+8 || f[12] != 0x08 || f[13] != 0x00 {
 		return false
@@ -237,25 +216,25 @@ func isDHCPFrame(f []byte) bool {
 	return src == 67 || src == 68 || dst == 67 || dst == 68
 }
 
-// captureDiag vertelt in gewone taal waar de pktmon-meting op stukliep. Zonder dit
-// is elke mislukking een kale timeout en valt er niets te herleiden.
+// captureDiag says in plain words where the pktmon measurement broke down. Without
+// it every failure is a bare timeout with nothing to trace back.
 func captureDiag(bytes, frames, dhcp, ours int, sawRequest bool) string {
 	switch {
 	case bytes == 0:
-		return "de pcapng van pktmon was leeg; de capture is niet gelopen"
+		return "the pcapng from pktmon was empty; the capture did not run"
 	case frames == 0:
-		return fmt.Sprintf("pktmon leverde %d bytes pcapng op maar er kwam geen enkel frame uit de parser; "+
-			"waarschijnlijk een pcapng-variant die deze tool niet leest", bytes)
+		return fmt.Sprintf("pktmon produced %d bytes of pcapng but the parser found no frames at all; "+
+			"probably a pcapng variant this tool does not read", bytes)
 	case dhcp == 0:
-		return fmt.Sprintf("pktmon ving %d frames op, maar geen enkel DHCP-frame (UDP 67/68); "+
-			"de capture staat mogelijk op een ander netwerkonderdeel dan de actieve adapter", frames)
+		return fmt.Sprintf("pktmon captured %d frames, but not a single DHCP frame (UDP 67/68); "+
+			"the capture may be on a different network component than the active adapter", frames)
 	case !sawRequest:
-		return fmt.Sprintf("pktmon ving %d frames op waarvan %d DHCP, maar onze eigen DISCOVER zat er niet bij; "+
-			"het verzoek is de adapter niet uit gekomen", frames, dhcp)
+		return fmt.Sprintf("pktmon captured %d frames of which %d DHCP, but our own DISCOVER was not among them; "+
+			"the request never left the adapter", frames, dhcp)
 	case ours == 0:
-		return fmt.Sprintf("pktmon ving %d frames op waarvan %d DHCP, maar geen met ons transactie-id", frames, dhcp)
+		return fmt.Sprintf("pktmon captured %d frames of which %d DHCP, but none with our transaction id", frames, dhcp)
 	default:
-		return fmt.Sprintf("pktmon ving %d frames op, %d DHCP, %d met ons transactie-id, maar geen OFFER of ACK; "+
-			"er staat geen DHCP-server op dit segment of hij antwoordt niet op een broadcast", frames, dhcp, ours)
+		return fmt.Sprintf("pktmon captured %d frames, %d DHCP, %d with our transaction id, but no OFFER or ACK; "+
+			"there is no DHCP server on this segment, or it does not answer a broadcast", frames, dhcp, ours)
 	}
 }

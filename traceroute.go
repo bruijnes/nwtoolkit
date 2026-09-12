@@ -29,7 +29,7 @@ type hopResult struct {
 	reached bool
 }
 
-// runTrace voert één volledige traceroute uit.
+// runTrace performs one complete traceroute.
 func runTrace(h icmpHandle, dst net.IP, o traceOpts) []hopResult {
 	payload := []byte("nwtoolkit-traceroute")
 	var hops []hopResult
@@ -61,12 +61,12 @@ func runTrace(h icmpHandle, dst net.IP, o traceOpts) []hopResult {
 }
 
 func printHops(dst net.IP, host string, hops []hopResult) {
-	fmt.Printf("traceroute naar %s (%s), max %d hops   %s\n", host, dst, hops[len(hops)-1].n, col(cGrey, "(alle tijden in ms)"))
+	fmt.Printf("traceroute to %s (%s), max %d hops   %s\n", host, dst, hops[len(hops)-1].n, col(cGrey, "(all times in ms)"))
 	for _, hr := range hops {
 		var b strings.Builder
 		fmt.Fprintf(&b, " %2d  ", hr.n)
 		if hr.ip == nil {
-			b.WriteString(col(cGrey, "* * *  (geen antwoord)"))
+			b.WriteString(col(cGrey, "* * *  (no answer)"))
 		} else {
 			for _, r := range hr.rtts {
 				if r < 0 {
@@ -88,7 +88,7 @@ func printHops(dst net.IP, host string, hops []hopResult) {
 			}
 			b.WriteString(" " + target)
 			if hr.reached {
-				b.WriteString(col(cGreen, "  <== doel"))
+				b.WriteString(col(cGreen, "  <== target"))
 			}
 		}
 		fmt.Println(b.String())
@@ -102,7 +102,7 @@ func cmdTrace(o traceOpts) {
 	}
 	h, err := icmpOpen()
 	if err != nil {
-		die("kan ICMP niet openen: %v", err)
+		die("cannot open ICMP: %v", err)
 	}
 	defer h.close()
 
@@ -112,7 +112,7 @@ func cmdTrace(o traceOpts) {
 		return
 	}
 
-	// Continu-modus: elke interval opnieuw, scherm wissen, met samengevatte min/avg/max per hop.
+	// Continuous mode: repeat every interval, clear the screen, summarising min/avg/max per hop.
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt)
 
@@ -131,7 +131,7 @@ func cmdTrace(o traceOpts) {
 		mu.Lock()
 		defer mu.Unlock()
 		fmt.Print(clrScr)
-		fmt.Printf("%s  traceroute-monitor naar %s (%s)   ronde %d   elke %s   Ctrl+C = stoppen\n\n",
+		fmt.Printf("%s  traceroute monitor to %s (%s)   round %d   every %s   Ctrl+C to stop\n\n",
 			col(cBold, "nwtoolkit"), o.host, dst, round, o.interval)
 		fmt.Printf(" %-3s %-32s %8s %8s %8s %8s %7s\n", "hop", "adres", "laatst", "min", "gem", "max", "verlies")
 		fmt.Printf(" %-3s %-32s %8s %8s %8s %8s %7s\n", "", "", "(ms)", "(ms)", "(ms)", "(ms)", "")
@@ -145,7 +145,7 @@ func cmdTrace(o traceOpts) {
 		for i := 1; i <= maxHop; i++ {
 			a := aggs[i]
 			if a == nil {
-				fmt.Printf(" %-3d %-32s\n", i, col(cGrey, "* (geen antwoord)"))
+				fmt.Printf(" %-3d %-32s\n", i, col(cGrey, "* (no answer)"))
 				continue
 			}
 			addr := "*"
@@ -172,7 +172,7 @@ func cmdTrace(o traceOpts) {
 			}
 			mark := ""
 			if a.reached {
-				mark = col(cGreen, " ⇐ doel")
+				mark = col(cGreen, " ⇐ target")
 			}
 			fmt.Printf(" %-3d %-32s %8.2f %8.2f %8.2f %8.2f %s%s\n",
 				i, addr, last, st.Min, st.Avg, st.Max, col(lc, fmt.Sprintf("%6.0f%%", st.Loss)), mark)
@@ -213,7 +213,7 @@ func cmdTrace(o traceOpts) {
 
 		select {
 		case <-sig:
-			fmt.Println("\ngestopt.")
+			fmt.Println("\nstopped.")
 			return
 		case <-time.After(o.interval):
 		}

@@ -4,8 +4,8 @@ package main
 
 import "fmt"
 
-// De native GUI bestaat alleen op Windows; elders valt de tool terug op de web-UI.
+// The native GUI only exists on Windows; elsewhere the tool falls back to the web UI.
 func runGUI() {
-	fmt.Println("De native vensterinterface is alleen op Windows beschikbaar; start in plaats daarvan de web-UI.")
+	fmt.Println("The native window interface is only available on Windows; start the web UI instead.")
 	cmdWeb("127.0.0.1:8733")
 }

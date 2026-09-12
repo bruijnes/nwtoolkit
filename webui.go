@@ -50,15 +50,15 @@ th{color:var(--mut);font-weight:500}
 .hint{color:var(--mut);font-size:12px;margin-top:8px}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
 </style></head><body>
-<header><b>nwtoolkit</b><span>netwerk-diagnose · v1.28</span><span style="margin-left:auto"><label style="display:inline;text-transform:none;letter-spacing:0;color:var(--fg);font-size:13px">IP-versie <select id="ipver" style="margin-left:6px"><option>IPv4</option><option>IPv6</option></select></label></span></header>
+<header><b>nwtoolkit</b><span>network diagnostics &middot; v1.28</span><span style="margin-left:auto"><label style="display:inline;text-transform:none;letter-spacing:0;color:var(--fg);font-size:13px">IP version <select id="ipver" style="margin-left:6px"><option>IPv4</option><option>IPv6</option></select></label></span></header>
 <nav id="tabs">
  <button data-t="ping" class="active">Ping</button>
  <button data-t="trace">Traceroute</button>
- <button data-t="dns">DNS-query</button>
- <button data-t="dnsspeed">DNS-speedtest</button>
- <button data-t="dhcp">DHCP-speedtest</button>
- <button data-t="lldp">LLDP-buur</button>
- <button data-t="over">Over</button>
+ <button data-t="dns">DNS query</button>
+ <button data-t="dnsspeed">DNS speed test</button>
+ <button data-t="dhcp">DHCP speed test</button>
+ <button data-t="lldp">LLDP neighbour</button>
+ <button data-t="about">About</button>
 </nav>
 <main>
 
@@ -81,12 +81,12 @@ th{color:var(--mut);font-weight:500}
   <div class="row">
    <div><label>Host / IP</label><input id="t_host" value="example.com"></div>
    <div><label>Max hops</label><input id="t_max" value="30" style="width:80px"></div>
-   <div><label>Namen</label><select id="t_res"><option value="0">nee</option><option value="1">ja (reverse-DNS)</option></select></div>
-   <div><label>Herhalen (s)</label><input id="t_int" value="0" style="width:80px"></div>
+   <div><label>Names</label><select id="t_res"><option value="0">no</option><option value="1">yes (reverse DNS)</option></select></div>
+   <div><label>Repeat (s)</label><input id="t_int" value="0" style="width:80px"></div>
    <button class="go" onclick="startTrace()">Start</button>
    <button class="stop" onclick="stopLoop()">Stop</button>
   </div>
-  <div class="hint">Herhalen = 0 → eenmalig. &gt;0 → continu-monitor die de tabel ververst.</div>
+  <div class="hint">Repeat = 0 &rarr; one-shot. &gt;0 &rarr; continuous monitor that refreshes the table.</div>
   <table id="t_tbl"><thead><tr><th>hop</th><th>adres</th><th>rtt (ms)</th></tr></thead><tbody></tbody></table>
  </div>
 </section>
@@ -94,8 +94,8 @@ th{color:var(--mut);font-weight:500}
 <section id="dns" class="tab" hidden>
  <div class="card">
   <div class="row">
-   <div><label>Naam</label><input id="d_name" value="example.com"></div>
-   <div><label>Server (leeg = systeem)</label><input id="d_srv" placeholder="bijv. 1.1.1.1"></div>
+   <div><label>Name</label><input id="d_name" value="example.com"></div>
+   <div><label>Server (empty = system)</label><input id="d_srv" placeholder="e.g. 1.1.1.1"></div>
    <div><label>Type</label><select id="d_type"><option>A</option><option>AAAA</option><option>MX</option><option>TXT</option><option>NS</option><option>CNAME</option><option>SOA</option><option>PTR</option></select></div>
    <button class="go" onclick="dnsOnce()">Query</button>
   </div>
@@ -107,8 +107,8 @@ th{color:var(--mut);font-weight:500}
 <section id="dnsspeed" class="tab" hidden>
  <div class="card">
   <div class="row">
-   <div><label>Naam</label><input id="ds_name" value="example.com"></div>
-   <div><label>Server (leeg = systeem)</label><input id="ds_srv" placeholder="bijv. 1.1.1.1"></div>
+   <div><label>Name</label><input id="ds_name" value="example.com"></div>
+   <div><label>Server (empty = system)</label><input id="ds_srv" placeholder="e.g. 1.1.1.1"></div>
    <div><label>Interval (s)</label><input id="ds_int" value="5" style="width:80px"></div>
    <button class="go" onclick="startLoop('dnsspeed')">Start</button>
    <button class="stop" onclick="stopLoop()">Stop</button>
@@ -121,12 +121,12 @@ th{color:var(--mut);font-weight:500}
 <section id="dhcp" class="tab" hidden>
  <div class="card">
   <div class="row">
-   <div><label>DHCP-server (leeg = broadcast)</label><input id="dh_srv" placeholder="leeg = DISCOVER op :68"></div>
+   <div><label>DHCP server (empty = broadcast)</label><input id="dh_srv" placeholder="empty = DISCOVER on :68"></div>
    <div><label>Interval (s)</label><input id="dh_int" value="5" style="width:80px"></div>
    <button class="go" onclick="startLoop('dhcp')">Start</button>
    <button class="stop" onclick="stopLoop()">Stop</button>
   </div>
-  <div class="hint">Leeg veld = broadcast DISCOVER op poort 68 (vereist Administrator). Server-IP ingevuld = unicast INFORM vanaf een vrije poort (geen admin nodig).</div>
+  <div class="hint">Empty field = broadcast to the network itself, with no prior knowledge of any server; every server that answers is listed. Filling in a server IP measures that one server with a unicast INFORM.</div>
   <div id="dh_stats"></div>
   <canvas id="dh_cv"></canvas>
  </div>
@@ -135,16 +135,16 @@ th{color:var(--mut);font-weight:500}
 <section id="lldp" class="tab" hidden>
  <div class="card">
   <div class="row">
-   <div><label>Interface</label><select id="ll_if"><option value="">automatisch</option></select></div>
-   <div><label>Wachttijd (s)</label><input id="ll_wait" value="35" style="width:90px"></div>
-   <button class="go" onclick="lldpGo()">Zoek buur</button>
+   <div><label>Interface</label><select id="ll_if"><option value="">automatic</option></select></div>
+   <div><label>Wait (s)</label><input id="ll_wait" value="35" style="width:90px"></div>
+   <button class="go" onclick="lldpGo()">Find neighbour</button>
   </div>
-  <div class="hint">Vraagt de aangesloten switch/poort op via LLDP. Kan tot ~30 s duren (LLDP wordt periodiek verstuurd). Op Windows loopt dit via de ingebouwde pktmon, dus start als Administrator.</div>
+  <div class="hint">Asks the connected switch and port over LLDP. Can take up to ~30 s, because LLDP is sent periodically. On Windows this goes through the built-in pktmon, so run as Administrator.</div>
   <div id="ll_out"></div>
  </div>
 </section>
 
-<section id="over" class="tab" hidden>
+<section id="about" class="tab" hidden>
  <div class="card">
   <div style="font-size:20px;font-weight:600;margin-bottom:10px">nwtoolkit v1.28</div>
   <p>Network diagnostic tool for IPv4, IPv6 and LLDP.</p>
@@ -216,7 +216,7 @@ function drawChart(cv,data,unit){
 }
 function statBlock(el,vals,unit){
  var v=vals.filter(function(z){return z!=null});
- if(!v.length){el.innerHTML='<span class=hint>wachten op meting…</span>';return}
+ if(!v.length){el.innerHTML='<span class=hint>waiting for a measurement…</span>';return}
  var mn=Math.min.apply(null,v),mx=Math.max.apply(null,v),av=v.reduce(function(a,b){return a+b},0)/v.length;
  var loss=Math.round((vals.length-v.length)/vals.length*100);
  var u='<small style="text-transform:none;letter-spacing:0"> '+unit+'</small>';
@@ -235,7 +235,7 @@ function startLoop(kind){
   if(kind==='ping'){
    fetch('/api/ping?host='+encodeURIComponent($('p_host').value)+v6p()).then(function(r){return r.json()}).then(function(d){
     series.push(d.ok?d.rtt_ms:null);
-    logs.unshift((new Date()).toLocaleTimeString()+'  '+(d.ok?('antwoord van '+d.from+'  '+d.rtt_ms.toFixed(2)+' ms'):('FOUT: '+(d.err||''))));
+    logs.unshift((new Date()).toLocaleTimeString()+'  '+(d.ok?('reply from '+d.from+'  '+d.rtt_ms.toFixed(2)+' ms'):('ERROR: '+(d.err||''))));
     logs=logs.slice(0,50);
     if(series.length>120)series=series.slice(-120);
     statBlock($('p_stats'),series,'ms'); drawChart($('p_cv'),series,'ms'); $('p_log').textContent=logs.join('\n');
@@ -263,8 +263,8 @@ function dnsOnce(){
  fetch('/api/dns?name='+encodeURIComponent($('d_name').value)+'&server='+encodeURIComponent($('d_srv').value)+'&type='+$('d_type').value+v6p())
  .then(function(r){return r.json()}).then(function(d){
   if(d.ok){$('d_stat').innerHTML='<div class=stat><small>responstijd</small><b>'+d.rtt_ms.toFixed(2)+' ms</b></div><div class=stat><small>server</small><b style=font-size:15px>'+d.server+'</b></div>';
-   $('d_out').textContent=(d.answers&&d.answers.length)?d.answers.join('\n'):'(geen records)';}
-  else{$('d_stat').innerHTML='<span style="color:var(--err)">FOUT: '+(d.err||'')+'  ('+d.rtt_ms.toFixed(2)+' ms)</span>';$('d_out').textContent='';}
+   $('d_out').textContent=(d.answers&&d.answers.length)?d.answers.join('\n'):'(no records)';}
+  else{$('d_stat').innerHTML='<span style="color:var(--err)">ERROR: '+(d.err||'')+'  ('+d.rtt_ms.toFixed(2)+' ms)</span>';$('d_out').textContent='';}
  });
 }
 
@@ -294,12 +294,12 @@ fetch('/api/lldp/interfaces').then(function(r){return r.json()}).then(function(d
 }).catch(function(){});
 function lldpGo(){
  var out=$('ll_out');
- out.innerHTML='<div class=hint>Zoeken naar LLDP-frames… dit kan tot ~30 s duren.</div>';
+ out.innerHTML='<div class=hint>Searching for LLDP frames… this can take up to ~30 s.</div>';
  var wait=parseInt($('ll_wait').value)||35;
  var ifv=$('ll_if').value;
  fetch('/api/lldp?wait='+wait+'&iface='+encodeURIComponent(ifv)).then(function(r){return r.json()}).then(function(d){
-  if(!d.ok){out.innerHTML='<div style="color:var(--err)">'+(d.err||'fout')+'</div>';return}
-  if(!d.neighbors||!d.neighbors.length){out.innerHTML='<div class=hint>Geen LLDP-buur gezien op '+(d.device||'')+'. Mogelijk staat LLDP uit of is het een niet-beheerde switch.</div>';return}
+  if(!d.ok){out.innerHTML='<div style="color:var(--err)">'+(d.err||'error')+'</div>';return}
+  if(!d.neighbors||!d.neighbors.length){out.innerHTML='<div class=hint>No LLDP neighbour seen on '+(d.device||'')+'. LLDP may be disabled, or it is an unmanaged switch.</div>';return}
   out.innerHTML=d.neighbors.map(function(n){
    var rows=[['Systeemnaam',n.sysname],['Poort',n.port],['Poortomschrijving',n.portdesc],['VLAN',n.vlan>0?n.vlan:''],['Chassis-ID',n.chassis],['Mgmt-adres',n.mgmt],['Capabilities',n.caps],['TTL',n.ttl>0?n.ttl+' s':''],['Systeeminfo',n.sysdesc]];
    return '<div class=card style="background:var(--bg)"><table>'+rows.filter(function(r){return r[1]!==''&&r[1]!=null}).map(function(r){

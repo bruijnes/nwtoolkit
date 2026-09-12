@@ -8,9 +8,9 @@ import (
 	"syscall"
 )
 
-// dhcpListen opent een UDP-socket voor DHCP. Met SO_REUSEADDR kan poort 68 gedeeld
-// worden met de Windows DHCP-Clientservice; SO_BROADCAST is nodig om naar
-// 255.255.255.255 te mogen zenden.
+// dhcpListen opens a UDP socket for DHCP. SO_REUSEADDR lets port 68 be shared with
+// the Windows DHCP Client service; SO_BROADCAST is needed to be allowed to send to
+// 255.255.255.255.
 func dhcpListen(laddr *net.UDPAddr, broadcast bool) (*net.UDPConn, error) {
 	lc := net.ListenConfig{
 		Control: func(network, address string, c syscall.RawConn) error {

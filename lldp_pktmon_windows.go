@@ -4,46 +4,22 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"time"
 )
 
-// pktmonCollect vangt LLDP-frames met de ingebouwde Windows Packet Monitor (pktmon).
-// Volledig op boordmiddelen — geen externe driver — maar vereist Administrator. Batch-gewijs:
-// start capture, wacht, stop, converteer naar pcapng, parse.
+// pktmonCollect captures LLDP frames with the built-in Windows Packet Monitor.
+// It simply records for the whole wait period, because LLDP is announced
+// periodically and there is nothing to send ourselves.
 func pktmonCollect(wait time.Duration) (map[string]*lldpNeighbor, error) {
-	if _, err := exec.LookPath("pktmon"); err != nil {
-		return nil, errPktmonUnsupported
-	}
 	if wait <= 0 {
 		wait = 35 * time.Second
 	}
-	dir := os.TempDir()
-	etl := filepath.Join(dir, "nwtoolkit_lldp.etl")
-	png := filepath.Join(dir, "nwtoolkit_lldp.pcapng")
-	os.Remove(etl)
-	os.Remove(png)
-
-	hidden("pktmon", "stop").Run() // eventuele vorige sessie opruimen
-
-	start := hidden("pktmon", "start", "--capture", "--pkt-size", "0", "--file-name", etl)
-	if out, err := start.CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("pktmon start faalde (Administrator nodig?): %s", trimOut(out))
-	}
-
-	time.Sleep(wait)
-	hidden("pktmon", "stop").Run()
-
-	conv := hidden("pktmon", "pcapng", etl, "-o", png)
-	if out, err := conv.CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("pktmon pcapng-conversie faalde: %s", trimOut(out))
-	}
-
-	data, err := os.ReadFile(png)
+	data, err := pktmonCapture("lldp", func() bool {
+		time.Sleep(wait)
+		return true
+	})
 	if err != nil {
-		return nil, fmt.Errorf("pcapng lezen: %w", err)
+		return nil, err
 	}
 	neighbors := map[string]*lldpNeighbor{}
 	for _, frame := range parsePcapng(data) {
@@ -52,35 +28,25 @@ func pktmonCollect(wait time.Duration) (map[string]*lldpNeighbor, error) {
 			neighbors[nb.key()] = nb
 		}
 	}
-	os.Remove(etl)
-	os.Remove(png)
 	return neighbors, nil
 }
 
-func trimOut(b []byte) string {
-	s := string(b)
-	if len(s) > 300 {
-		s = s[:300]
-	}
-	return s
-}
-
-// tryPktmon is de console-variant: opnemen en tonen (met -m in een lus).
+// tryPktmon is the console variant: capture and display, looping with -m.
 func tryPktmon(o lldpOpts) error {
-	fmt.Printf("%s  gebruikt de ingebouwde pktmon (Administrator nodig).\n", col(cBold, "nwtoolkit"))
+	fmt.Printf("%s  using the built-in pktmon (Administrator required).\n", col(cBold, "nwtoolkit"))
 	for {
-		fmt.Printf("%s\n", col(cGrey, fmt.Sprintf("Opnemen gedurende %s…", o.wait)))
+		fmt.Printf("%s\n", col(cGrey, fmt.Sprintf("Capturing for %s…", o.wait)))
 		neighbors, err := pktmonCollect(o.wait)
 		if err != nil {
 			return err
 		}
 		if len(neighbors) == 0 {
-			fmt.Println(col(cYellow, "Geen LLDP-frames opgevangen."))
-			fmt.Println(col(cGrey, "Mogelijk staat LLDP uit op de switch, of het is een niet-beheerde switch."))
+			fmt.Println(col(cYellow, "No LLDP frames captured."))
+			fmt.Println(col(cGrey, "LLDP may be disabled on the switch, or it is an unmanaged switch."))
 		} else {
 			if o.monitor {
 				fmt.Print(clrScr)
-				fmt.Printf("%s  LLDP-monitor (pktmon)   %d buur/buren   Ctrl+C = stoppen\n", col(cBold, "nwtoolkit"), len(neighbors))
+				fmt.Printf("%s  LLDP monitor (pktmon)   %d neighbour(s)   Ctrl+C to stop\n", col(cBold, "nwtoolkit"), len(neighbors))
 			}
 			for _, n := range sortedNeighbors(neighbors) {
 				fmt.Println()

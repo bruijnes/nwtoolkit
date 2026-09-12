@@ -19,8 +19,8 @@ import (
 	d "github.com/lxn/walk/declarative"
 )
 
-// writeCrash schrijft tekst naar nwtoolkit-crash.log naast de exe (of in TEMP) en
-// geeft het gebruikte pad terug.
+// writeCrash writes text to nwtoolkit-crash.log next to the exe, or in TEMP, and
+// returns the path it used.
 func writeCrash(msg string) string {
 	dir := "."
 	if exe, err := os.Executable(); err == nil {
@@ -34,33 +34,33 @@ func writeCrash(msg string) string {
 	return path
 }
 
-// crashLog vangt een panic op, logt de stacktrace en toont een foutmelding.
+// crashLog catches a panic, logs the stack trace and shows an error message.
 func crashLog() {
 	if r := recover(); r != nil {
 		msg := fmt.Sprintf("nwtoolkit %s crash %s\n%v\n\n%s\n",
 			version, time.Now().Format("2006-01-02 15:04:05"), r, debug.Stack())
 		path := writeCrash(msg)
-		walk.MsgBox(nil, "nwtoolkit - fout bij opstarten",
-			fmt.Sprintf("%v\n\nDetails opgeslagen in:\n%s", r, path),
+		walk.MsgBox(nil, "nwtoolkit - startup error",
+			fmt.Sprintf("%v\n\nDetails saved to:\n%s", r, path),
 			walk.MsgBoxIconError)
 	}
 }
 
-// guiFail logt een niet-panic opstartfout (bv. Create() faalt) en toont die.
+// guiFail logs a non-panic startup error, such as Create() failing, and shows it.
 func guiFail(what string, err error) {
-	msg := fmt.Sprintf("nwtoolkit %s opstartfout %s\n%s: %v\n",
+	msg := fmt.Sprintf("nwtoolkit %s startup error %s\n%s: %v\n",
 		version, time.Now().Format("2006-01-02 15:04:05"), what, err)
 	path := writeCrash(msg)
-	walk.MsgBox(nil, "nwtoolkit - fout bij opstarten",
-		fmt.Sprintf("%s:\n%v\n\nDetails opgeslagen in:\n%s", what, err, path),
+	walk.MsgBox(nil, "nwtoolkit - startup error",
+		fmt.Sprintf("%s:\n%v\n\nDetails saved to:\n%s", what, err, path),
 		walk.MsgBoxIconError)
 }
 
 var procSetWindowTheme = syscall.NewLazyDLL("uxtheme.dll").NewProc("SetWindowTheme")
 
-// classicScrollbars haalt het moderne thema van een control af, zodat de
-// klassieke, altijd-zichtbare scrollbar met pijlknoppen verschijnt
-// (i.p.v. de Windows 11-scrollbar die de pijlen pas bij hover toont).
+// classicScrollbars strips the modern theme from a control so the classic,
+// always-visible scrollbar with arrow buttons appears, instead of the Windows 11
+// scrollbar that only reveals its arrows on hover.
 func classicScrollbars(te *walk.TextEdit) {
 	if te == nil {
 		return
@@ -89,7 +89,7 @@ const mitLicense = "MIT License\r\n\r\n" +
 	"OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\r\n" +
 	"SOFTWARE."
 
-// ---- live grafiek-data ----
+// ---- live chart data ----
 
 type chartData struct {
 	mu    sync.Mutex
@@ -110,7 +110,7 @@ func (c *chartData) push(v float64, ok bool) {
 	}
 	c.vals = append(c.vals, v)
 	c.times = append(c.times, time.Now())
-	if len(c.vals) > 50000 { // ruime historie; de grafiek comprimeert tot de beschikbare breedte
+	if len(c.vals) > 50000 { // generous history; the chart compresses to the available width
 		c.vals = c.vals[len(c.vals)-50000:]
 		c.times = c.times[len(c.times)-50000:]
 	}
@@ -134,10 +134,10 @@ func paintChart(cd *chartData, cw *walk.CustomWidget, canvas *walk.Canvas) error
 	if cw == nil {
 		return nil
 	}
-	b := cw.ClientBoundsPixels() // volledige widgetgrootte, niet alleen het hertekengebied
+	b := cw.ClientBoundsPixels() // the full widget size, not just the repaint area
 	vals, times, _, _ := cd.snapshot()
 
-	bgBrush, _ := walk.NewSolidColorBrush(walk.RGB(0xf0, 0xf0, 0xf0)) // zelfde grijs als het logveld
+	bgBrush, _ := walk.NewSolidColorBrush(walk.RGB(0xf0, 0xf0, 0xf0)) // same grey as the log box
 	defer bgBrush.Dispose()
 	canvas.FillRectanglePixels(bgBrush, b)
 
@@ -205,14 +205,14 @@ func paintChart(cd *chartData, cw *walk.CustomWidget, canvas *walk.Canvas) error
 
 	n := len(vals)
 	if n >= 2 && n <= plotW {
-		// genoeg breedte: gewone lijn door elk punt
+		// enough width: a plain line through every point
 		for i := 1; i < n; i++ {
 			canvas.DrawLinePixels(linePen,
 				walk.Point{X: gx(i-1, n), Y: gy(vals[i-1])},
 				walk.Point{X: gx(i, n), Y: gy(vals[i])})
 		}
 	} else if n > plotW {
-		// meer metingen dan pixels: comprimeer per kolom naar een min/max-band + gemiddelde-lijn
+		// more samples than pixels: compress per column into a min/max band plus an average line
 		bandPen, _ := walk.NewCosmeticPen(walk.PenSolid, walk.RGB(0xbf, 0xd6, 0xd7))
 		defer bandPen.Dispose()
 		prevX, prevY, havePrev := 0, 0, false
@@ -246,7 +246,7 @@ func paintChart(cd *chartData, cw *walk.CustomWidget, canvas *walk.Canvas) error
 		}
 	}
 
-	// x-as: tijdslabels (klokmoment van de metingen) onderaan
+	// x axis: time labels along the bottom, the clock time of each sample
 	if chartFont != nil && n >= 2 {
 		yLab := y0 + plotH + 5
 		axisTick, _ := walk.NewCosmeticPen(walk.PenSolid, walk.RGB(0xc8, 0xcc, 0xd0))
@@ -279,9 +279,9 @@ func paintChart(cd *chartData, cw *walk.CustomWidget, canvas *walk.Canvas) error
 func statsText(vals []float64, lost, n int, unit string) string {
 	if len(vals) == 0 {
 		if n == 0 {
-			return "Klaar."
+			return "Ready."
 		}
-		return fmt.Sprintf("metingen: %d   fouten: %d", n, lost)
+		return fmt.Sprintf("samples: %d   errors: %d", n, lost)
 	}
 	mn, mx, sum := vals[0], vals[0], 0.0
 	for _, v := range vals {
@@ -295,11 +295,11 @@ func statsText(vals []float64, lost, n int, unit string) string {
 	}
 	avg := sum / float64(len(vals))
 	loss := float64(lost) * 100 / float64(n)
-	return fmt.Sprintf("laatst %.2f %s     min %.2f     gem %.2f     max %.2f %s     verlies %.0f%%     metingen %d",
+	return fmt.Sprintf("last %.2f %s     min %.2f     avg %.2f     max %.2f %s     loss %.0f%%     samples %d",
 		vals[len(vals)-1], unit, mn, avg, mx, unit, loss, n)
 }
 
-// ---- job-beheer per tab ----
+// ---- per-tab job management ----
 
 type job struct {
 	stop    chan struct{}
@@ -326,12 +326,12 @@ func atof(s string, def float64) float64 {
 	return def
 }
 
-// runGUI toont het native Windows-venster.
+// runGUI shows the native Windows window.
 func runGUI() {
 	defer crashLog()
-	kernel32.NewProc("FreeConsole").Call() // verberg console bij dubbelklik
+	kernel32.NewProc("FreeConsole").Call() // hide the console when double-clicked
 	useColor = false
-	chartFont, _ = walk.NewFont("Segoe UI", 8, 0) // fijn en licht; punt rendert nu dankzij de tekstvlaggen
+	chartFont, _ = walk.NewFont("Segoe UI", 8, 0) // fine and light; the dot now renders thanks to the text flags
 
 	var mw *walk.MainWindow
 	var status *walk.StatusBarItem
@@ -367,7 +367,7 @@ func runGUI() {
 		name string, interval time.Duration, measure func() (float64, string, error)) {
 		stop := j.start()
 		cd.reset()
-		setStatus(name + " loopt…")
+		setStatus(name + " running…")
 		go func() {
 			for {
 				v, info, err := measure()
@@ -376,12 +376,12 @@ func runGUI() {
 				txt := statsText(vals, lost, n, cd.unit)
 				syncUI(func() {
 					stats.SetText(txt)
-					setStatus(name + " loopt — " + txt)
+					setStatus(name + " running — " + txt)
 					chart.Invalidate()
 					if logv != nil {
 						ts := time.Now().Format("15:04:05")
 						if err != nil {
-							logv.AppendText(fmt.Sprintf("%s  fout: %s\r\n", ts, err.Error()))
+							logv.AppendText(fmt.Sprintf("%s  error: %s\r\n", ts, err.Error()))
 						} else {
 							logv.AppendText(fmt.Sprintf("%s  %.2f %s   %s\r\n", ts, v, cd.unit, info))
 						}
@@ -389,7 +389,7 @@ func runGUI() {
 				})
 				select {
 				case <-stop:
-					syncUI(func() { setStatus(name + " gestopt.") })
+					syncUI(func() { setStatus(name + " stopped.") })
 					return
 				case <-time.After(interval):
 				}
@@ -405,7 +405,7 @@ func runGUI() {
 		Layout: d.VBox{Margins: mrg(10), Spacing: 8},
 		Children: []d.Widget{
 			d.GroupBox{
-				Title:  "Instellingen",
+				Title:  "Settings",
 				Layout: d.HBox{Margins: mrg(10), Spacing: 8},
 				Children: []d.Widget{
 					d.Label{Text: "Host / IP:"},
@@ -415,7 +415,7 @@ func runGUI() {
 					d.PushButton{Text: "Start", MinSize: d.Size{Width: 90}, OnClicked: func() {
 						ip, err := resolveIP(pHost.Text(), useV6())
 						if err != nil {
-							setStatus("fout: " + err.Error())
+							setStatus("error: " + err.Error())
 							return
 						}
 						h, _ := icmpOpen()
@@ -427,7 +427,7 @@ func runGUI() {
 							if st != ipSuccess {
 								return 0, "", fmt.Errorf("%s", ipStatusText(st))
 							}
-							return float64(rtt.Microseconds()) / 1000, "van " + peer.String(), nil
+							return float64(rtt.Microseconds()) / 1000, "from " + peer.String(), nil
 						})
 					}},
 					d.PushButton{Text: "Stop", MinSize: d.Size{Width: 90}, OnClicked: func() { pJob.halt() }},
@@ -435,10 +435,10 @@ func runGUI() {
 				},
 			},
 			d.GroupBox{
-				Title:  "Responstijd (ms)",
+				Title:  "Response time (ms)",
 				Layout: d.VBox{Margins: mrg(8), Spacing: 6},
 				Children: []d.Widget{
-					d.Label{AssignTo: &pStats, Text: "Klaar."},
+					d.Label{AssignTo: &pStats, Text: "Ready."},
 					d.CustomWidget{AssignTo: &pChart, MinSize: d.Size{Height: 120}, StretchFactor: 1, InvalidatesOnResize: true, Paint: func(c *walk.Canvas, _ walk.Rectangle) error { return paintChart(pData, pChart, c) }},
 				},
 			},
@@ -458,28 +458,28 @@ func runGUI() {
 		Layout: d.VBox{Margins: mrg(10), Spacing: 8},
 		Children: []d.Widget{
 			d.GroupBox{
-				Title:  "Instellingen",
+				Title:  "Settings",
 				Layout: d.HBox{Margins: mrg(10), Spacing: 8},
 				Children: []d.Widget{
 					d.Label{Text: "Host / IP:"},
 					d.LineEdit{AssignTo: &trHost, Text: "example.com", MaxSize: d.Size{Width: 220}},
-					d.CheckBox{AssignTo: &trMon, Text: "continu monitoren"},
+					d.CheckBox{AssignTo: &trMon, Text: "monitor continuously"},
 					d.PushButton{Text: "Start", MinSize: d.Size{Width: 90}, OnClicked: func() {
 						dst, err := resolveIP(trHost.Text(), useV6())
 						if err != nil {
-							trOut.SetText("fout: " + err.Error())
+							trOut.SetText("error: " + err.Error())
 							return
 						}
 						host := trHost.Text()
 						mon := trMon.Checked()
 						h, _ := icmpOpen()
 						stop := trJob.start()
-						setStatus("Traceroute loopt…")
+						setStatus("Traceroute running…")
 						go func() {
 							for {
 								hops := runTrace(h, dst, traceOpts{maxHops: 30, probes: 3, timeout: 2 * time.Second, resolve: true})
 								txt := traceText(host, dst.String(), hops)
-								syncUI(func() { trOut.SetText(txt); setStatus("Traceroute klaar.") })
+								syncUI(func() { trOut.SetText(txt); setStatus("Traceroute done.") })
 								if !mon {
 									return
 								}
@@ -496,7 +496,7 @@ func runGUI() {
 				},
 			},
 			d.GroupBox{
-				Title:    "Route (tijden in ms)",
+				Title:    "Route (times in ms)",
 				Layout:   d.VBox{Margins: mrg(8)},
 				Children: []d.Widget{d.TextEdit{AssignTo: &trOut, ReadOnly: true, VScroll: true, Font: d.Font{Family: "Consolas", PointSize: 9}}},
 			},
@@ -504,48 +504,48 @@ func runGUI() {
 	}
 
 	dnsPage := d.TabPage{
-		Title:  "DNS-query",
+		Title:  "DNS query",
 		Font:   d.Font{Family: "Segoe UI", PointSize: 9},
 		Layout: d.VBox{Margins: mrg(10), Spacing: 8},
 		Children: []d.Widget{
 			d.GroupBox{
-				Title:  "Instellingen",
+				Title:  "Settings",
 				Layout: d.HBox{Margins: mrg(10), Spacing: 8},
 				Children: []d.Widget{
-					d.Label{Text: "Naam:"},
+					d.Label{Text: "Name:"},
 					d.LineEdit{AssignTo: &dName, Text: "example.com", MaxSize: inputW},
 					d.Label{Text: "Server:"},
-					d.LineEdit{AssignTo: &dServer, CueBanner: "leeg = systeem", MaxSize: d.Size{Width: 140}},
+					d.LineEdit{AssignTo: &dServer, CueBanner: "empty = system", MaxSize: d.Size{Width: 140}},
 					d.Label{Text: "Type:"},
 					d.ComboBox{AssignTo: &dType, Value: "A", Model: []string{"A", "AAAA", "MX", "TXT", "NS", "CNAME", "SOA", "PTR"}},
 					d.PushButton{Text: "Query", MinSize: d.Size{Width: 90}, OnClicked: func() {
 						server := serverAddr(dServer.Text(), useV6())
 						qt := qtypeCode(fmt.Sprintf("%v", dType.Text()))
 						name := dName.Text()
-						dOut.SetText("bezig…")
-						setStatus("DNS-query…")
+						dOut.SetText("working…")
+						setStatus("DNS query…")
 						go func() {
 							rtt, ans, err := doQuery(server, name, qt, 3*time.Second)
 							var sb strings.Builder
-							fmt.Fprintf(&sb, "Server:       %s\r\nResponstijd:  %.2f ms\r\n\r\n", server, float64(rtt.Microseconds())/1000)
+							fmt.Fprintf(&sb, "Server:        %s\r\nResponse time: %.2f ms\r\n\r\n", server, float64(rtt.Microseconds())/1000)
 							if err != nil {
-								fmt.Fprintf(&sb, "Fout: %s\r\n", err.Error())
+								fmt.Fprintf(&sb, "Error: %s\r\n", err.Error())
 							} else if len(ans) == 0 {
-								sb.WriteString("(geen records)\r\n")
+								sb.WriteString("(no records)\r\n")
 							} else {
 								for _, a := range ans {
 									sb.WriteString(a + "\r\n")
 								}
 							}
 							txt := sb.String()
-							syncUI(func() { dOut.SetText(txt); setStatus("DNS-query klaar.") })
+							syncUI(func() { dOut.SetText(txt); setStatus("DNS query done.") })
 						}()
 					}},
 					d.HSpacer{},
 				},
 			},
 			d.GroupBox{
-				Title:    "Antwoord",
+				Title:    "Answer",
 				Layout:   d.VBox{Margins: mrg(8)},
 				Children: []d.Widget{d.TextEdit{AssignTo: &dOut, ReadOnly: true, VScroll: true, Font: d.Font{Family: "Consolas", PointSize: 9}}},
 			},
@@ -553,24 +553,24 @@ func runGUI() {
 	}
 
 	dnsSpeedPage := d.TabPage{
-		Title:  "DNS-speedtest",
+		Title:  "DNS speed test",
 		Font:   d.Font{Family: "Segoe UI", PointSize: 9},
 		Layout: d.VBox{Margins: mrg(10), Spacing: 8},
 		Children: []d.Widget{
 			d.GroupBox{
-				Title:  "Instellingen",
+				Title:  "Settings",
 				Layout: d.HBox{Margins: mrg(10), Spacing: 8},
 				Children: []d.Widget{
-					d.Label{Text: "Naam:"},
+					d.Label{Text: "Name:"},
 					d.LineEdit{AssignTo: &dsName, Text: "example.com", MaxSize: inputW},
 					d.Label{Text: "Server:"},
-					d.LineEdit{AssignTo: &dsServer, CueBanner: "leeg = systeem", MaxSize: d.Size{Width: 140}},
+					d.LineEdit{AssignTo: &dsServer, CueBanner: "empty = system", MaxSize: d.Size{Width: 140}},
 					d.Label{Text: "Interval (s):"},
 					d.LineEdit{AssignTo: &dsInt, Text: "5", MaxSize: d.Size{Width: 60}},
 					d.PushButton{Text: "Start", MinSize: d.Size{Width: 90}, OnClicked: func() {
 						server := serverAddr(dsServer.Text(), useV6())
 						name := dsName.Text()
-						startSpeed(&dsJob, dsData, dsChart, dsStats, nil, "DNS-speedtest", dur(atof(dsInt.Text(), 5)), func() (float64, string, error) {
+						startSpeed(&dsJob, dsData, dsChart, dsStats, nil, "DNS speed test", dur(atof(dsInt.Text(), 5)), func() (float64, string, error) {
 							rtt, ans, err := doQuery(server, name, qtypeCode("HINFO"), 3*time.Second)
 							info := ""
 							if len(ans) > 0 {
@@ -584,10 +584,10 @@ func runGUI() {
 				},
 			},
 			d.GroupBox{
-				Title:  "Responstijd (ms)",
+				Title:  "Response time (ms)",
 				Layout: d.VBox{Margins: mrg(8), Spacing: 6},
 				Children: []d.Widget{
-					d.Label{AssignTo: &dsStats, Text: "Klaar."},
+					d.Label{AssignTo: &dsStats, Text: "Ready."},
 					d.CustomWidget{AssignTo: &dsChart, MinSize: d.Size{Height: 140}, StretchFactor: 1, InvalidatesOnResize: true, Paint: func(c *walk.Canvas, _ walk.Rectangle) error { return paintChart(dsData, dsChart, c) }},
 				},
 			},
@@ -595,12 +595,12 @@ func runGUI() {
 	}
 
 	dhcpPage := d.TabPage{
-		Title:  "DHCP-speedtest",
+		Title:  "DHCP speed test",
 		Font:   d.Font{Family: "Segoe UI", PointSize: 9},
 		Layout: d.VBox{Margins: mrg(10), Spacing: 8},
 		Children: []d.Widget{
 			d.GroupBox{
-				Title:  "Instellingen",
+				Title:  "Settings",
 				Layout: d.HBox{Margins: mrg(10), Spacing: 8},
 				Children: []d.Widget{
 					d.Label{Text: "Interface:"},
@@ -613,7 +613,7 @@ func runGUI() {
 						sel := strings.TrimSpace(dhIf.Text())
 						var srcIP net.IP
 						name := ""
-						if sel != "" && sel != "(automatisch)" {
+						if sel != "" && sel != "(automatic)" {
 							name = sel
 							if i := strings.LastIndex(sel, "("); i >= 0 {
 								srcIP = net.ParseIP(strings.Trim(sel[i+1:], "() "))
@@ -624,7 +624,7 @@ func runGUI() {
 							to = 8 * time.Second
 						}
 						o := dhcpOpts{iface: name, srcIP: srcIP, timeout: to, ipv6: useV6()}
-						startSpeed(&dhJob, dhData, dhChart, dhStats, dhOut, "DHCP-speedtest", dur(atof(dhInt.Text(), 5)), func() (float64, string, error) {
+						startSpeed(&dhJob, dhData, dhChart, dhStats, dhOut, "DHCP speed test", dur(atof(dhInt.Text(), 5)), func() (float64, string, error) {
 							res, err := dhcpProbe(o)
 							if err != nil {
 								return 0, "", err
@@ -633,7 +633,7 @@ func runGUI() {
 							if res.msgType == dhcpAck {
 								mt = "ACK"
 							}
-							info := mt + " van " + res.serverID.String()
+							info := mt + " from " + res.serverID.String()
 							if res.method != "" {
 								info += "  [" + res.method + "]"
 							}
@@ -648,11 +648,11 @@ func runGUI() {
 				},
 			},
 			d.GroupBox{
-				Title:  "Responstijd (ms)",
+				Title:  "Response time (ms)",
 				Layout: d.VBox{Margins: mrg(8), Spacing: 6},
 				Children: []d.Widget{
-					d.Label{Text: "Vraagt het netwerk zelf, zonder enige voorkennis van servers, zoals een apparaat dat net wordt aangesloten. Elke DHCP-server op het segment antwoordt; komen er meerdere, dan worden ze allemaal getoond en is dat het signaal voor een ongewenste server."},
-					d.Label{AssignTo: &dhStats, Text: "Klaar."},
+					d.Label{Text: "Asks the network itself, with no prior knowledge of any server, the way a device behaves when it is first plugged in. Every DHCP server on the segment answers; if more than one does, they are all listed, and that is the signal for a rogue server."},
+					d.Label{AssignTo: &dhStats, Text: "Ready."},
 					d.CustomWidget{AssignTo: &dhChart, MinSize: d.Size{Height: 130}, StretchFactor: 1, InvalidatesOnResize: true, Paint: func(c *walk.Canvas, _ walk.Rectangle) error { return paintChart(dhData, dhChart, c) }},
 					d.TextEdit{AssignTo: &dhOut, ReadOnly: true, MinSize: d.Size{Height: 90}, Font: d.Font{Family: "Consolas", PointSize: 9}},
 				},
@@ -661,35 +661,35 @@ func runGUI() {
 	}
 
 	lldpPage := d.TabPage{
-		Title:  "LLDP-buur",
+		Title:  "LLDP neighbour",
 		Font:   d.Font{Family: "Segoe UI", PointSize: 9},
 		Layout: d.VBox{Margins: mrg(10), Spacing: 8},
 		Children: []d.Widget{
 			d.GroupBox{
-				Title:  "Instellingen",
+				Title:  "Settings",
 				Layout: d.HBox{Margins: mrg(10), Spacing: 8},
 				Children: []d.Widget{
 					d.Label{Text: "Interface:"},
 					d.ComboBox{AssignTo: &llIf, Editable: true, MaxSize: d.Size{Width: 260}},
-					d.Label{Text: "Wachttijd (s):"},
+					d.Label{Text: "Wait (s):"},
 					d.LineEdit{AssignTo: &llWait, Text: "35", MaxSize: d.Size{Width: 60}},
-					d.PushButton{Text: "Zoek buur", MinSize: d.Size{Width: 110}, OnClicked: func() {
+					d.PushButton{Text: "Find neighbour", MinSize: d.Size{Width: 110}, OnClicked: func() {
 						hint := llIf.Text()
 						wait := dur(atof(llWait.Text(), 35))
-						llOut.SetText("Zoeken naar LLDP-frames… dit kan tot ~30 s duren.\r\n")
-						setStatus("LLDP zoeken…")
+						llOut.SetText("Searching for LLDP frames… this can take up to ~30 s.\r\n")
+						setStatus("Searching for LLDP…")
 						llJob.start()
 						go func() {
 							nbs, dev, err := lldpOnce(hint, wait)
 							syncUI(func() {
 								if err != nil {
-									llOut.SetText("fout: " + err.Error())
-									setStatus("LLDP fout.")
+									llOut.SetText("error: " + err.Error())
+									setStatus("LLDP error.")
 									return
 								}
 								if len(nbs) == 0 {
-									llOut.SetText("Geen LLDP-buur gezien op " + dev + ".\r\nMogelijk staat LLDP uit of is het een niet-beheerde switch.")
-									setStatus("LLDP: geen buur.")
+									llOut.SetText("No LLDP neighbour seen on " + dev + ".\r\nLLDP may be disabled, or it is an unmanaged switch.")
+									setStatus("LLDP: no neighbour.")
 									return
 								}
 								var sb strings.Builder
@@ -698,7 +698,7 @@ func runGUI() {
 									sb.WriteString("\r\n")
 								}
 								llOut.SetText(sb.String())
-								setStatus("LLDP klaar.")
+								setStatus("LLDP done.")
 							})
 						}()
 					}},
@@ -706,10 +706,10 @@ func runGUI() {
 				},
 			},
 			d.GroupBox{
-				Title:  "Aangesloten switch/poort",
+				Title:  "Connected switch/port",
 				Layout: d.VBox{Margins: mrg(8), Spacing: 6},
 				Children: []d.Widget{
-					d.Label{Text: "Windows gebruikt hiervoor de ingebouwde pktmon; start als Administrator."},
+					d.Label{Text: "Windows uses the built-in pktmon for this; run as Administrator."},
 					d.TextEdit{AssignTo: &llOut, ReadOnly: true, VScroll: true, Font: d.Font{Family: "Consolas", PointSize: 9}},
 				},
 			},
@@ -717,7 +717,7 @@ func runGUI() {
 	}
 
 	overPage := d.TabPage{
-		Title:  "Over",
+		Title:  "About",
 		Font:   d.Font{Family: "Segoe UI", PointSize: 9},
 		Layout: d.VBox{Margins: mrg(18), Spacing: 6},
 		Children: []d.Widget{
@@ -748,7 +748,7 @@ func runGUI() {
 
 	if err := (d.MainWindow{
 		AssignTo: &mw,
-		Title:    "nwtoolkit " + version + " — netwerkdiagnose (IPv4)",
+		Title:    "nwtoolkit " + version + " — network diagnostics (IPv4)",
 		MinSize:  d.Size{Width: 520, Height: 380},
 		Size:     d.Size{Width: 1000, Height: 700},
 		Layout:   d.VBox{Margins: mrg(0)},
@@ -756,20 +756,20 @@ func runGUI() {
 			d.Composite{
 				Layout: d.HBox{Margins: d.Margins{Left: 10, Top: 6, Right: 10, Bottom: 0}, Spacing: 8},
 				Children: []d.Widget{
-					d.Label{Text: "IP-versie:"},
+					d.Label{Text: "IP version:"},
 					d.ComboBox{AssignTo: &ipVer, Value: "IPv4", Model: []string{"IPv4", "IPv6"}, MaxSize: d.Size{Width: 90}},
 					d.HSpacer{},
 				},
 			},
 			d.TabWidget{Font: d.Font{Family: "Segoe UI", PointSize: 10}, Pages: []d.TabPage{pingPage, tracePage, dnsPage, dnsSpeedPage, dhcpPage, lldpPage, overPage}},
 		},
-		StatusBarItems: []d.StatusBarItem{{AssignTo: &status, Text: "Klaar.", Width: 1200}},
+		StatusBarItems: []d.StatusBarItem{{AssignTo: &status, Text: "Ready.", Width: 1200}},
 	}).Create(); err != nil {
-		guiFail("GUI-venster kon niet worden aangemaakt", err)
+		guiFail("could not create GUI window", err)
 		return
 	}
 
-	// klassieke, altijd-zichtbare scrollbars op de tekstvakken
+	// classic, always-visible scrollbars on the text boxes
 	classicScrollbars(pLog)
 	classicScrollbars(trOut)
 	classicScrollbars(dOut)
@@ -782,9 +782,9 @@ func runGUI() {
 			syncUI(func() { llIf.SetModel(devs) })
 		}
 	}()
-	// DHCP-interfacelijst uit de echte NIC's
+	// DHCP interface list from the real NICs
 	{
-		items := []string{"(automatisch)"}
+		items := []string{"(automatic)"}
 		for _, ic := range usableIPv4Ifaces() {
 			items = append(items, fmt.Sprintf("%s  (%s)", ic.name, ic.ip))
 		}
@@ -802,11 +802,11 @@ func runGUI() {
 	mw.Run()
 }
 
-// ---- tekstformattering voor GUI ----
+// ---- text formatting for the GUI ----
 
 func traceText(host, dst string, hops []hopResult) string {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "traceroute naar %s (%s)\r\n\r\n", host, dst)
+	fmt.Fprintf(&sb, "traceroute to %s (%s)\r\n\r\n", host, dst)
 	fmt.Fprintf(&sb, "%-3s  %-36s  %s\r\n", "hop", "adres", "rtt (ms)")
 	fmt.Fprintf(&sb, "%s\r\n", strings.Repeat("-", 62))
 	for _, hr := range hops {
@@ -827,7 +827,7 @@ func traceText(host, dst string, hops []hopResult) string {
 		}
 		mark := ""
 		if hr.reached {
-			mark = "   <= doel"
+			mark = "   <= target"
 		}
 		fmt.Fprintf(&sb, "%-3d  %-36s  %s%s\r\n", hr.n, addr, strings.Join(rtts, "  "), mark)
 	}
@@ -841,21 +841,21 @@ func neighborText(n *lldpNeighbor) string {
 			fmt.Fprintf(&sb, "  %-16s %s\r\n", k+":", v)
 		}
 	}
-	sb.WriteString("LLDP-buur (aangesloten apparaat):\r\n")
-	add("Systeemnaam", n.SysName)
-	add("Poort", n.PortID)
-	add("Poortomschr.", n.PortDesc)
+	sb.WriteString("LLDP neighbour (connected device):\r\n")
+	add("System name", n.SysName)
+	add("Port", n.PortID)
+	add("Port descr.", n.PortDesc)
 	if n.VLAN > 0 {
 		add("VLAN", strconv.Itoa(n.VLAN))
 	}
-	add("Chassis-ID", n.ChassisID)
-	add("Mgmt-adres", n.MgmtAddr)
+	add("Chassis ID", n.ChassisID)
+	add("Mgmt address", n.MgmtAddr)
 	add("Capabilities", n.Caps)
 	if n.TTL > 0 {
 		add("TTL", strconv.Itoa(n.TTL)+" s")
 	}
 	if n.SysDesc != "" {
-		add("Systeeminfo", firstLine(n.SysDesc))
+		add("System info", firstLine(n.SysDesc))
 	}
 	return sb.String()
 }

@@ -35,7 +35,7 @@ func cmdWeb(addr string) {
 		w.Write([]byte(webHTML))
 	})
 
-	// één ping-meting
+	// one ping measurement
 	mux.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) {
 		host := r.URL.Query().Get("host")
 		ip, err := resolveIP(host, r.URL.Query().Get("v6") == "1")
@@ -61,7 +61,7 @@ func cmdWeb(addr string) {
 		jsonWrite(w, res)
 	})
 
-	// één DNS-query
+	// one DNS query
 	mux.HandleFunc("/api/dns", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		server := serverAddr(q.Get("server"), q.Get("v6") == "1")
@@ -82,7 +82,7 @@ func cmdWeb(addr string) {
 		jsonWrite(w, res)
 	})
 
-	// één DHCP-meting
+	// one DHCP measurement
 	mux.HandleFunc("/api/dhcp", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		o := dhcpOpts{server: q.Get("server"), iface: q.Get("iface"), timeout: 3 * time.Second, port: qInt(r, "port", 0), ipv6: q.Get("v6") == "1"}
@@ -114,7 +114,7 @@ func cmdWeb(addr string) {
 		jsonWrite(w, out)
 	})
 
-	// volledige traceroute (één run)
+	// full traceroute (one run)
 	mux.HandleFunc("/api/traceroute", func(w http.ResponseWriter, r *http.Request) {
 		host := r.URL.Query().Get("host")
 		dst, err := resolveIP(host, r.URL.Query().Get("v6") == "1")
@@ -137,7 +137,7 @@ func cmdWeb(addr string) {
 		jsonWrite(w, map[string]any{"ok": true, "dst": dst.String(), "hops": out})
 	})
 
-	// LLDP-buur (kan lang duren; browser haalt met lange timeout op)
+	// LLDP neighbour (can take a while; the browser fetches with a long timeout)
 	mux.HandleFunc("/api/lldp", func(w http.ResponseWriter, r *http.Request) {
 		hint := r.URL.Query().Get("iface")
 		wait := time.Duration(qInt(r, "wait", 35)) * time.Second
@@ -157,7 +157,7 @@ func cmdWeb(addr string) {
 		jsonWrite(w, map[string]any{"ok": true, "device": dev, "neighbors": out})
 	})
 
-	// interfacelijst voor de LLDP-tab
+	// interface list for the LLDP tab
 	mux.HandleFunc("/api/lldp/interfaces", func(w http.ResponseWriter, r *http.Request) {
 		_, devs, _ := openLLDP("")
 		jsonWrite(w, map[string]any{"interfaces": devs})
@@ -165,11 +165,11 @@ func cmdWeb(addr string) {
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		die("kan web-UI niet starten op %s: %v", addr, err)
+		die("cannot start web UI on %s: %v", addr, err)
 	}
 	url := fmt.Sprintf("http://%s/", ln.Addr().String())
-	fmt.Printf("%s  web-UI draait op %s\n", col(cBold, "nwtoolkit"), col(cCyan, url))
-	fmt.Println("Open dat adres in je browser. Ctrl+C om te stoppen.")
+	fmt.Printf("%s  web UI running at %s\n", col(cBold, "nwtoolkit"), col(cCyan, url))
+	fmt.Println("Open that address in your browser. Ctrl+C to stop.")
 	openBrowser(url)
 	http.Serve(ln, mux)
 }

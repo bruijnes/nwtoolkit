@@ -23,8 +23,9 @@ func enableVT() bool {
 	return r != 0
 }
 
-// launchedFromExplorer bepaalt of de exe is dubbelgeklikt (eigen console, 1 proces)
-// versus gestart vanuit een bestaande terminal (>=2 processen delen de console).
+// launchedFromExplorer decides whether the exe was double-clicked, giving it its own
+// console with one process, versus started from an existing terminal, where two or
+// more processes share the console.
 func launchedFromExplorer() bool {
 	proc := kernel32.NewProc("GetConsoleProcessList")
 	if proc.Find() != nil {

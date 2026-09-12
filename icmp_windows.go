@@ -32,7 +32,7 @@ const afInet6 = 23
 
 var icmp6Handle uintptr
 
-// localV6 bepaalt een lokaal IPv6-bronadres om dst te bereiken (:: als het niet lukt).
+// localV6 determines a local IPv6 source address to reach dst (:: if that fails).
 func localV6(dst net.IP) [16]byte {
 	var a [16]byte
 	c, err := net.Dial("udp6", "["+dst.String()+"]:9")
@@ -45,7 +45,7 @@ func localV6(dst net.IP) [16]byte {
 	return a
 }
 
-// echo6win verstuurt één ICMPv6 echo via Icmp6SendEcho2 (NIET getest op dit systeem).
+// echo6win sends one ICMPv6 echo via Icmp6SendEcho2 (NOT tested on this system).
 func echo6win(dst net.IP, ttl int, timeout time.Duration, payload []byte) (net.IP, time.Duration, uint32, error) {
 	if icmp6Handle == 0 {
 		h, _, err := procIcmp6Create.Call()
@@ -82,7 +82,7 @@ func echo6win(dst net.IP, ttl int, timeout time.Duration, payload []byte) (net.I
 	if ret == 0 {
 		return nil, rtt, ipReqTimedOut, nil
 	}
-	// ICMPV6_ECHO_REPLY: IPV6_ADDRESS_EX (packed) sin6_addr op offset 6 (16 bytes), Status op offset 26.
+	// ICMPV6_ECHO_REPLY: IPV6_ADDRESS_EX (packed) sin6_addr at offset 6 (16 bytes), Status at offset 26.
 	var addr [16]byte
 	copy(addr[:], reply[6:22])
 	status := *(*uint32)(unsafe.Pointer(&reply[26]))
@@ -151,8 +151,8 @@ func icmpOpen() (icmpHandle, error) {
 
 func (h icmpHandle) close() { procIcmpClose.Call(uintptr(h)) }
 
-// echo verstuurt één ICMP echo naar dst (IPv4) met de gegeven TTL en timeout.
-// Retour: responder-IP, RTT, windows-status, err (err alleen bij API-fouten).
+// echo sends one ICMP echo to dst (IPv4) with the given TTL and timeout.
+// Returns: responder IP, RTT, Windows status, err (err only on API errors).
 func (h icmpHandle) echo(dst net.IP, ttl int, timeout time.Duration, payload []byte) (net.IP, time.Duration, uint32, error) {
 	v4 := dst.To4()
 	if v4 == nil {
@@ -184,11 +184,11 @@ func (h icmpHandle) echo(dst net.IP, ttl int, timeout time.Duration, payload []b
 	rtt := time.Since(start)
 
 	if ret == 0 {
-		// Geen replies. GetLastError geeft de reden (bijv. timeout).
+		// No replies. GetLastError gives the reason, e.g. a timeout.
 		return nil, rtt, ipReqTimedOut, nil
 	}
 	r := (*icmpEchoReply)(unsafe.Pointer(&reply[0]))
 	ip := net.IPv4(byte(r.Address), byte(r.Address>>8), byte(r.Address>>16), byte(r.Address>>24))
-	// Gebruik wall-clock RTT (betere resolutie dan de ms-teller van Windows).
+	// Use wall-clock RTT; better resolution than the millisecond counter from Windows.
 	return ip, rtt, r.Status, nil
 }

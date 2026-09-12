@@ -2,5 +2,5 @@
 
 package main
 
-// Op niet-Windows leest doQuery de resolver uit /etc/resolv.conf; deze fallback blijft leeg.
+// On non-Windows, doQuery reads the resolver from /etc/resolv.conf; this fallback stays empty.
 func systemDNS() string { return "" }

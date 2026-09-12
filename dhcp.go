@@ -10,25 +10,25 @@ import (
 )
 
 type dhcpOpts struct {
-	server   string // leeg = broadcast DISCOVER; ingevuld = unicast INFORM
+	server   string // empty = broadcast DISCOVER; set = unicast INFORM
 	iface    string
-	srcIP    net.IP // lokaal IPv4 om aan te binden (kiest de uitgaande interface); nil = OS kiest
+	srcIP    net.IP // local IPv4 to bind to (selects the outgoing interface); nil = the OS picks
 	timeout  time.Duration
 	monitor  bool
 	interval time.Duration
 	count    int
-	port     int // lokale poort; 0 = auto (68 voor broadcast, ephemeral voor inform)
+	port     int // local port; 0 = auto (68 for broadcast, ephemeral for inform)
 	ipv6     bool
 }
 
-// netIface beschrijft een bruikbare interface voor de DHCP-interfacekeuze.
+// netIface describes a usable interface for the DHCP interface choice.
 type netIface struct {
 	name string
 	ip   net.IP
 	mac  net.HardwareAddr
 }
 
-// usableIPv4Ifaces geeft de actieve, niet-loopback interfaces met een IPv4-adres.
+// usableIPv4Ifaces returns the active, non-loopback interfaces that have an IPv4 address.
 func usableIPv4Ifaces() []netIface {
 	var out []netIface
 	ifaces, _ := net.Interfaces()
@@ -51,7 +51,7 @@ func usableIPv4Ifaces() []netIface {
 	return out
 }
 
-// macForIP zoekt het MAC-adres van de interface met dit IPv4-adres.
+// macForIP looks up the MAC address of the interface holding this IPv4 address.
 func macForIP(ip net.IP) net.HardwareAddr {
 	if ip == nil {
 		return nil
@@ -77,7 +77,7 @@ const (
 	magicCookie  = 0x63825363
 )
 
-// localAddrFor bepaalt het lokale IPv4 + MAC voor het bereiken van dst (of default route).
+// localAddrFor determines the local IPv4 and MAC used to reach dst (or the default route).
 func localAddrFor(dst string, ifname string) (net.IP, net.HardwareAddr, error) {
 	target := dst
 	if target == "" || target == "255.255.255.255" {
@@ -92,7 +92,7 @@ func localAddrFor(dst string, ifname string) (net.IP, net.HardwareAddr, error) {
 	defer c.Close()
 	localIP := c.LocalAddr().(*net.UDPAddr).IP.To4()
 
-	// vind de interface met dit IP (of met de opgegeven naam) voor het MAC-adres
+	// find the interface holding this IP (or the named one) to get its MAC address
 	ifaces, _ := net.Interfaces()
 	var mac net.HardwareAddr
 	for _, ifc := range ifaces {
@@ -109,7 +109,7 @@ func localAddrFor(dst string, ifname string) (net.IP, net.HardwareAddr, error) {
 		}
 	}
 	if mac == nil {
-		mac = net.HardwareAddr{0x02, 0x00, 0x4e, 0x54, 0x00, 0x01} // locally-administered fallback
+		mac = net.HardwareAddr{0x02, 0x00, 0x4e, 0x54, 0x00, 0x01} // locally administered fallback
 	}
 	return localIP, mac, nil
 }
@@ -184,12 +184,12 @@ type dhcpResult struct {
 	yiaddr   net.IP
 	serverID net.IP
 	msgType  byte
-	info6    string   // gevuld bij DHCPv6 (bijv. "REPLY")
-	method   string   // welke opvangmethode: "INFORM", "pktmon", "UDP"
-	servers  []net.IP // alle servers die binnen de timeout antwoordden (broadcast DISCOVER)
+	info6    string   // filled for DHCPv6 (e.g. "REPLY")
+	method   string   // which capture method: "INFORM", "pktmon", "UDP"
+	servers  []net.IP // every server that answered within the timeout (broadcast DISCOVER)
 }
 
-// addServer voegt een server toe aan de lijst zonder dubbelen.
+// addServer appends a server to the list, skipping duplicates.
 func (r *dhcpResult) addServer(ip net.IP) {
 	if ip == nil {
 		return
@@ -202,8 +202,8 @@ func (r *dhcpResult) addServer(ip net.IP) {
 	r.servers = append(r.servers, ip)
 }
 
-// serverSummary beschrijft hoeveel servers antwoordden; bij meer dan één is dat
-// een rogue-DHCP-signaal en dus het vermelden waard.
+// serverSummary describes how many servers answered; more than one is a rogue-DHCP
+// signal and therefore worth reporting.
 func (r dhcpResult) serverSummary() string {
 	if len(r.servers) < 2 {
 		return ""
@@ -212,17 +212,17 @@ func (r dhcpResult) serverSummary() string {
 	for i, s := range r.servers {
 		names[i] = s.String()
 	}
-	return fmt.Sprintf("%d servers antwoordden: %s", len(r.servers), strings.Join(names, ", "))
+	return fmt.Sprintf("%d servers answered: %s", len(r.servers), strings.Join(names, ", "))
 }
 
-// dhcpProbeUDP verstuurt via een gewone UDP-socket één DISCOVER (broadcast) of
-// INFORM (unicast) en wacht op OFFER/ACK. Op Windows is dit onbetrouwbaar omdat de
-// DHCP-Clientservice poort 68 bezit; daar kiest dhcpProbe daarom eerst de unicast
-// INFORM naar de server die Windows al kent, en anders de ingebouwde pktmon.
+// dhcpProbeUDP sends a single DISCOVER (broadcast) or INFORM (unicast) over an
+// ordinary UDP socket and waits for an OFFER or ACK. On Windows this is unreliable
+// because the DHCP Client service owns port 68, which is why dhcpProbe there prefers
+// a unicast INFORM to a known server, and otherwise the built-in pktmon.
 func dhcpProbeUDP(o dhcpOpts) (dhcpResult, error) {
 	localIP, mac, err := localAddrFor(o.server, o.iface)
 	if err != nil {
-		return dhcpResult{}, fmt.Errorf("lokaal adres bepalen: %w", err)
+		return dhcpResult{}, fmt.Errorf("determining local address: %w", err)
 	}
 
 	var xidb [4]byte
@@ -238,7 +238,7 @@ func dhcpProbeUDP(o dhcpOpts) (dhcpResult, error) {
 	}
 	packet := buildDHCP(msg, xid, mac, ci, broadcast)
 
-	// socket opzetten
+	// set up the socket
 	lport := o.port
 	if lport == 0 {
 		if broadcast {
@@ -251,7 +251,7 @@ func dhcpProbeUDP(o dhcpOpts) (dhcpResult, error) {
 	conn, err := dhcpListen(laddr, broadcast)
 	if err != nil {
 		if broadcast {
-			return dhcpResult{}, fmt.Errorf("kan poort 68 niet openen (%v) — start als Administrator of stop de DHCP-clientservice, of gebruik -server <ip> voor de unicast INFORM-methode", err)
+			return dhcpResult{}, fmt.Errorf("cannot open port 68 (%v) — run as Administrator or stop the DHCP Client service, or use -server <ip> for the unicast INFORM method", err)
 		}
 		return dhcpResult{}, err
 	}
@@ -263,17 +263,34 @@ func dhcpProbeUDP(o dhcpOpts) (dhcpResult, error) {
 	} else {
 		sip, _ := resolve4(o.server)
 		if sip == nil {
-			return dhcpResult{}, fmt.Errorf("kan DHCP-server %s niet resolven", o.server)
+			return dhcpResult{}, fmt.Errorf("cannot resolve DHCP server %s", o.server)
 		}
 		dst = &net.UDPAddr{IP: sip, Port: 67}
 	}
 
 	start := time.Now()
 	if _, err := conn.WriteToUDP(packet, dst); err != nil {
-		return dhcpResult{}, fmt.Errorf("verzenden: %w", err)
+		return dhcpResult{}, fmt.Errorf("sending: %w", err)
 	}
 
-	conn.SetReadDeadline(time.Now().Add(o.timeout))
+	return collectAnswers(conn, xid, start, o.timeout, broadcast, "")
+}
+
+// extraListenWindow is how long a broadcast probe keeps listening after the first
+// answer. A second responder means a rogue DHCP server, which is worth catching,
+// but waiting out the full timeout on every measurement would be pointless.
+const extraListenWindow = 400 * time.Millisecond
+
+// collectAnswers reads DHCP replies on conn until the timeout expires, and returns
+// the first usable one together with every distinct server that answered.
+//
+// A unicast probe returns as soon as one answer arrives, because only one server can
+// reply. A broadcast probe keeps listening for extraListenWindow afterwards, so a
+// second server on the segment still shows up. label prefixes the timeout message
+// when several interfaces are probed at once and the caller needs to say which one.
+func collectAnswers(conn *net.UDPConn, xid uint32, start time.Time, timeout time.Duration, broadcast bool, label string) (dhcpResult, error) {
+	deadline := start.Add(timeout)
+	conn.SetReadDeadline(deadline)
 	buf := make([]byte, 1500)
 	var res dhcpResult
 	got := false
@@ -281,56 +298,55 @@ func dhcpProbeUDP(o dhcpOpts) (dhcpResult, error) {
 		n, _, err := conn.ReadFromUDP(buf)
 		if err != nil {
 			if got {
-				return res, nil // deadline van het extra luistervenster
+				return res, nil // deadline of the extra listening window
 			}
-			return dhcpResult{}, fmt.Errorf("geen antwoord binnen %s", o.timeout)
+			if label != "" {
+				return dhcpResult{}, fmt.Errorf("%s: no answer within %s", label, timeout)
+			}
+			return dhcpResult{}, fmt.Errorf("no answer within %s", timeout)
 		}
 		mt, yi, sid, ok := parseDHCP(buf[:n])
-		if !ok {
-			continue
-		}
-		if binary.BigEndian.Uint32(buf[4:8]) != xid {
-			continue // niet ons transactie-id
+		if !ok || binary.BigEndian.Uint32(buf[4:8]) != xid {
+			continue // not a reply, or not our transaction id
 		}
 		if mt != dhcpOffer && mt != dhcpAck {
 			continue
 		}
-		if !got {
-			got = true
-			res = dhcpResult{rtt: time.Since(start), yiaddr: yi, serverID: sid, msgType: mt}
+		if got {
 			res.addServer(sid)
-			if !broadcast {
-				return res, nil // unicast INFORM: één antwoord is genoeg
-			}
-			// broadcast: nog even doorluisteren of er een tweede server antwoordt
-			extra := 400 * time.Millisecond
-			if rest := time.Until(start.Add(o.timeout)); rest < extra {
-				extra = rest
-			}
-			if extra <= 0 {
-				return res, nil
-			}
-			conn.SetReadDeadline(time.Now().Add(extra))
 			continue
 		}
+		got = true
+		res = dhcpResult{rtt: time.Since(start), yiaddr: yi, serverID: sid, msgType: mt}
 		res.addServer(sid)
+		if !broadcast {
+			return res, nil // unicast: one answer is all there is
+		}
+		extra := extraListenWindow
+		if rest := time.Until(deadline); rest < extra {
+			extra = rest
+		}
+		if extra <= 0 {
+			return res, nil
+		}
+		conn.SetReadDeadline(time.Now().Add(extra))
 	}
 }
 
 func cmdDHCP(o dhcpOpts) {
-	method := "broadcast naar 255.255.255.255 — zonder voorkennis van servers"
+	method := "broadcast to 255.255.255.255 — with no prior knowledge of any server"
 	if o.ipv6 {
 		method = "DHCPv6 INFORMATION-REQUEST (multicast ff02::1:2)"
 		if o.server != "" {
-			method = "DHCPv6 INFORMATION-REQUEST naar " + o.server
+			method = "DHCPv6 INFORMATION-REQUEST to " + o.server
 		}
 	} else if o.server != "" {
-		method = "unicast INFORM naar " + o.server
+		method = "unicast INFORM to " + o.server
 	}
 
 	if !o.monitor && o.count <= 1 {
 		res, err := dhcpProbe(o)
-		fmt.Printf("DHCP-speedtest  methode: %s\n", method)
+		fmt.Printf("DHCP speed test  method: %s\n", method)
 		if err != nil {
 			die("%v", err)
 		}
@@ -340,14 +356,14 @@ func cmdDHCP(o dhcpOpts) {
 		} else if res.msgType == dhcpAck {
 			mt = "ACK"
 		}
-		fmt.Printf("Antwoord:   %s van server %s\n", mt, res.serverID)
+		fmt.Printf("Answer:     %s from server %s\n", mt, res.serverID)
 		if sum := res.serverSummary(); sum != "" {
-			fmt.Printf("Let op:     %s\n", col(cYellow, sum))
+			fmt.Printf("Note:       %s\n", col(cYellow, sum))
 		}
 		if !res.yiaddr.Equal(net.IPv4zero) && res.yiaddr != nil {
-			fmt.Printf("Aangeboden: %s\n", res.yiaddr)
+			fmt.Printf("Offered:    %s\n", res.yiaddr)
 		}
-		fmt.Printf("Tijd:       %s\n", col(cGreen, fmt.Sprintf("%.2f ms", float64(res.rtt.Microseconds())/1000)))
+		fmt.Printf("Time:       %s\n", col(cGreen, fmt.Sprintf("%.2f ms", float64(res.rtt.Microseconds())/1000)))
 		return
 	}
 
@@ -368,7 +384,7 @@ func cmdDHCP(o dhcpOpts) {
 			} else if res.msgType == dhcpAck {
 				mt = "ACK"
 			}
-			info := fmt.Sprintf("%s van %s", mt, res.serverID)
+			info := fmt.Sprintf("%s from %s", mt, res.serverID)
 			if !res.yiaddr.Equal(net.IPv4zero) && res.yiaddr != nil {
 				info += " → " + res.yiaddr.String()
 			}

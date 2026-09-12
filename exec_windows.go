@@ -7,12 +7,12 @@ import (
 	"syscall"
 )
 
-// createNoWindow onderdrukt het console-venster dat Windows anders opent voor een
-// child-proces. Zonder dit flitst er een zwarte DOS-box op zodra de GUI pktmon of
-// rundll32 start.
+// createNoWindow suppresses the console window Windows would otherwise open for a
+// child process. Without it a black console flashes up whenever the GUI starts
+// pktmon or rundll32.
 const createNoWindow = 0x08000000
 
-// hidden maakt een commando dat geen eigen venster opent.
+// hidden builds a command that opens no window of its own.
 func hidden(name string, args ...string) *exec.Cmd {
 	c := exec.Command(name, args...)
 	c.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: createNoWindow}

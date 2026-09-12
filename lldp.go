@@ -12,17 +12,17 @@ import (
 	"time"
 )
 
-// LLDP EtherType en multicast-bestemming.
+// LLDP EtherType and multicast destination.
 const lldpEtherType = 0x88cc
 
-// errNoLiveCapture betekent dat dit platform geen live laag-2-capture heeft; dan
-// ingebouwde pktmon-route (alleen Windows).
-var errNoLiveCapture = errors.New("dit platform heeft geen live laag-2-capture; de ingebouwde pktmon wordt gebruikt (Administrator nodig)")
+// errNoLiveCapture means this platform has no live layer-2 capture, in which case
+// the built-in pktmon route is used (Windows only).
+var errNoLiveCapture = errors.New("this platform has no live layer-2 capture; the built-in pktmon is used (Administrator required)")
 
-// errPktmonUnsupported: geen pktmon-terugval op dit platform.
-var errPktmonUnsupported = errors.New("pktmon niet beschikbaar op dit platform")
+// errPktmonUnsupported: no pktmon fallback on this platform.
+var errPktmonUnsupported = errors.New("pktmon not available on this platform")
 
-// lldpNeighbor bevat de uitgelezen velden van één LLDP-buur (de switch/poort aan de andere kant).
+// lldpNeighbor holds the decoded fields of one LLDP neighbour (the switch and port on the other end).
 type lldpNeighbor struct {
 	ChassisID string
 	PortID    string
@@ -39,14 +39,14 @@ type lldpNeighbor struct {
 
 func (n lldpNeighbor) key() string { return n.ChassisID + "|" + n.PortID }
 
-// capturer is de platform-specifieke L2-capture (Linux AF_PACKET; Windows gebruikt pktmon).
+// capturer is the platform-specific layer-2 capture (Linux AF_PACKET; Windows uses pktmon).
 type capturer interface {
 	next(timeout time.Duration) (frame []byte, err error)
 	device() string
 	close()
 }
 
-// parseLLDP ontleedt een compleet ethernetframe (incl. 14-byte header) naar een buur.
+// parseLLDP decodes a complete Ethernet frame, including the 14-byte header, into a neighbour.
 func parseLLDP(frame []byte) (*lldpNeighbor, bool) {
 	if len(frame) < 14 {
 		return nil, false
@@ -191,7 +191,7 @@ func decodeCaps(v []byte) string {
 		name string
 	}{
 		{1 << 0, "Other"}, {1 << 1, "Repeater"}, {1 << 2, "Bridge"},
-		{1 << 3, "WLAN-AP"}, {1 << 4, "Router"}, {1 << 5, "Telefoon"},
+		{1 << 3, "WLAN-AP"}, {1 << 4, "Router"}, {1 << 5, "Telephone"},
 		{1 << 6, "DOCSIS"}, {1 << 7, "Station"},
 	}
 	var out []string
@@ -203,7 +203,7 @@ func decodeCaps(v []byte) string {
 	return strings.Join(out, ", ")
 }
 
-// decodeOrg leest org-specifieke TLV's; met name IEEE 802.1 Port VLAN ID.
+// decodeOrg reads organisation-specific TLVs, notably the IEEE 802.1 Port VLAN ID.
 func decodeOrg(v []byte, n *lldpNeighbor) {
 	if len(v) < 4 {
 		return
@@ -232,24 +232,24 @@ func (n lldpNeighbor) printBlock() {
 			fmt.Printf("  %-16s %s\n", label+":", val)
 		}
 	}
-	fmt.Println(col(cBold, "  LLDP-buur (aangesloten apparaat):"))
-	line("Systeemnaam", col(cCyan, n.SysName))
-	line("Poort", col(cGreen, n.PortID))
-	line("Poortomschr.", n.PortDesc)
+	fmt.Println(col(cBold, "  LLDP neighbour (connected device):"))
+	line("System name", col(cCyan, n.SysName))
+	line("Port", col(cGreen, n.PortID))
+	line("Port descr.", n.PortDesc)
 	if n.VLAN > 0 {
 		line("VLAN", fmt.Sprintf("%d", n.VLAN))
 	}
-	line("Chassis-ID", n.ChassisID)
-	line("Mgmt-adres", n.MgmtAddr)
+	line("Chassis ID", n.ChassisID)
+	line("Mgmt address", n.MgmtAddr)
 	line("Capabilities", n.Caps)
 	if n.TTL > 0 {
 		line("TTL", fmt.Sprintf("%d s", n.TTL))
 	}
 	if n.localIf != "" {
-		line("Lokale poort", n.localIf)
+		line("Local port", n.localIf)
 	}
 	if n.SysDesc != "" {
-		fmt.Printf("  %-16s %s\n", "Systeeminfo:", firstLine(n.SysDesc))
+		fmt.Printf("  %-16s %s\n", "System info:", firstLine(n.SysDesc))
 	}
 }
 
@@ -274,9 +274,9 @@ func cmdLLDP(o lldpOpts) {
 	cap, devs, err := openLLDP(o.iface)
 	if o.list {
 		if len(devs) == 0 {
-			fmt.Println("geen interfaces gevonden.")
+			fmt.Println("no interfaces found.")
 		}
-		fmt.Println("Beschikbare interfaces:")
+		fmt.Println("Available interfaces:")
 		for _, d := range devs {
 			fmt.Println("  " + d)
 		}
@@ -286,7 +286,7 @@ func cmdLLDP(o lldpOpts) {
 		return
 	}
 	if err != nil {
-		// Geen live capture? Gebruik de ingebouwde pktmon-route (Windows).
+		// No live capture? Use the built-in pktmon route (Windows).
 		if errors.Is(err, errNoLiveCapture) {
 			perr := tryPktmon(o)
 			if perr == nil {
@@ -300,8 +300,8 @@ func cmdLLDP(o lldpOpts) {
 	}
 	defer cap.close()
 
-	fmt.Printf("%s  luistert op %s naar LLDP-frames…\n", col(cBold, "nwtoolkit"), col(cCyan, cap.device()))
-	fmt.Println(col(cGrey, "LLDP wordt meestal elke 30 s verstuurd, dus dit kan even duren. Ctrl+C = stoppen."))
+	fmt.Printf("%s  listening on %s for LLDP frames…\n", col(cBold, "nwtoolkit"), col(cCyan, cap.device()))
+	fmt.Println(col(cGrey, "LLDP is usually sent every 30 s, so this may take a while. Ctrl+C to stop."))
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt)
@@ -319,8 +319,8 @@ func cmdLLDP(o lldpOpts) {
 		default:
 		}
 		if !o.monitor && time.Now().After(deadline) && len(neighbors) == 0 {
-			fmt.Println(col(cYellow, "\nGeen LLDP-frames ontvangen binnen de wachttijd."))
-			fmt.Println(col(cGrey, "Mogelijk staat LLDP uit op de switch, of het is een niet-beheerde switch. (Op Windows: als Administrator starten.)"))
+			fmt.Println(col(cYellow, "\nNo LLDP frames received within the wait time."))
+			fmt.Println(col(cGrey, "LLDP may be disabled on the switch, or it is an unmanaged switch. (On Windows: run as Administrator.)"))
 			return
 		}
 
@@ -341,8 +341,7 @@ func cmdLLDP(o lldpOpts) {
 		} else if !existed {
 			fmt.Println()
 			nb.printBlock()
-			// eenmalig: stop kort nadat we (mogelijk meerdere) buren hebben; hier na de eerste
-			finishLLDPquiet(neighbors, len(neighbors))
+			// one-shot: stop as soon as we have a neighbour
 			return
 		}
 	}
@@ -350,26 +349,24 @@ func cmdLLDP(o lldpOpts) {
 
 func drawLLDP(neighbors map[string]*lldpNeighbor) {
 	fmt.Print(clrScr)
-	fmt.Printf("%s  LLDP-monitor   %d buur/buren   Ctrl+C = stoppen\n", col(cBold, "nwtoolkit"), len(neighbors))
+	fmt.Printf("%s  LLDP monitor   %d neighbour(s)   Ctrl+C to stop\n", col(cBold, "nwtoolkit"), len(neighbors))
 	for _, n := range sortedNeighbors(neighbors) {
 		fmt.Println()
 		n.printBlock()
-		fmt.Printf("  %-16s %s\n", "Laatst gezien:", n.lastSeen.Format("15:04:05"))
+		fmt.Printf("  %-16s %s\n", "Last seen:", n.lastSeen.Format("15:04:05"))
 	}
 }
 
 func finishLLDP(neighbors map[string]*lldpNeighbor) {
-	fmt.Printf("\n%d LLDP-buur/buren gezien.\n", len(neighbors))
+	fmt.Printf("\n%d LLDP neighbour(s) seen.\n", len(neighbors))
 }
 
-func finishLLDPquiet(neighbors map[string]*lldpNeighbor, n int) {}
-
-// lldpOnce vangt LLDP-buren tot de eerste is gezien of tot wait verstreken is.
-// Gebruikt door de web-UI.
+// lldpOnce captures LLDP neighbours until the first one is seen or wait elapses.
+// Used by the web UI.
 func lldpOnce(hint string, wait time.Duration) ([]*lldpNeighbor, string, error) {
 	cap, _, err := openLLDP(hint)
 	if err != nil {
-		// Geen live capture? Val terug op de ingebouwde pktmon (Windows, Administrator).
+		// No live capture? Fall back to the built-in pktmon (Windows, Administrator).
 		if errors.Is(err, errNoLiveCapture) {
 			nbs, perr := pktmonCollect(wait)
 			if perr == nil {

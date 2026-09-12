@@ -11,18 +11,18 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-// Windows bewaart de actieve DHCP-lease per interface in het register. Dat is
-// ingebouwd, leesbaar zonder Administrator en vereist geen capture-driver, dus
-// het is de betrouwbaarste manier om te weten wélke DHCP-server ons bedient.
+// Windows keeps the active DHCP lease per interface in the registry. That is
+// built in, readable without Administrator and needs no capture driver, which makes
+// it the most reliable way to learn which DHCP server is serving us.
 const (
 	tcpipIfaces = `SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces`
 	netConnKey  = `SYSTEM\CurrentControlSet\Control\Network\{4D36E972-E325-11CE-BFC1-08002BE10318}`
 )
 
-// dhcpLease is de lease-informatie van één interface, zoals Windows die kent.
+// dhcpLease is the lease information for one interface, as Windows knows it.
 type dhcpLease struct {
 	guid     string
-	name     string // vriendelijke naam, bijv. "Ethernet"
+	name     string // friendly name, e.g. "Ethernet"
 	ip       net.IP
 	server   net.IP
 	gateway  net.IP
@@ -38,8 +38,8 @@ func (l dhcpLease) label() string {
 	return l.guid
 }
 
-// ifaceFriendlyName vertaalt een interface-GUID naar de naam die de gebruiker in
-// Windows ziet. Faalt dat, dan geeft het een lege string terug.
+// ifaceFriendlyName translates an interface GUID into the name the user sees in
+// Windows. If that fails it returns an empty string.
 func ifaceFriendlyName(guid string) string {
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, netConnKey+`\`+guid+`\Connection`, registry.QUERY_VALUE)
 	if err != nil {
@@ -53,7 +53,7 @@ func ifaceFriendlyName(guid string) string {
 	return name
 }
 
-// parseIP4 leest een IPv4-adres uit een registerwaarde; lege of "0.0.0.0" telt niet.
+// parseIP4 reads an IPv4 address from a registry value; empty or "0.0.0.0" does not count.
 func parseIP4(s string) net.IP {
 	s = strings.TrimSpace(s)
 	if s == "" || s == "0.0.0.0" {
@@ -66,17 +66,17 @@ func parseIP4(s string) net.IP {
 	return ip.To4()
 }
 
-// dhcpLeases geeft alle interfaces met een actieve DHCP-lease, nieuwste eerst.
+// dhcpLeases returns all interfaces holding an active DHCP lease, newest first.
 func dhcpLeases() ([]dhcpLease, error) {
 	root, err := registry.OpenKey(registry.LOCAL_MACHINE, tcpipIfaces, registry.ENUMERATE_SUB_KEYS)
 	if err != nil {
-		return nil, fmt.Errorf("register openen: %w", err)
+		return nil, fmt.Errorf("opening registry: %w", err)
 	}
 	defer root.Close()
 
 	guids, err := root.ReadSubKeyNames(-1)
 	if err != nil {
-		return nil, fmt.Errorf("interfaces lezen: %w", err)
+		return nil, fmt.Errorf("reading interfaces: %w", err)
 	}
 
 	var out []dhcpLease
@@ -117,14 +117,14 @@ func dhcpLeases() ([]dhcpLease, error) {
 		out = append(out, l)
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("geen interface met een actieve DHCP-lease gevonden")
+		return nil, fmt.Errorf("no interface with an active DHCP lease found")
 	}
 	return out, nil
 }
 
-// leaseFor kiest de lease die hoort bij de gevraagde interface of bron-IP.
-// Zonder voorkeur wint de lease waarvan het IP ook echt op een actieve
-// interface zit, zodat een oude lease van een losgekoppelde adapter niet stoort.
+// leaseFor picks the lease belonging to the requested interface or source IP.
+// With no preference, the lease whose IP actually sits on an active interface wins,
+// so a stale lease from a disconnected adapter does not get in the way.
 func leaseFor(ifname string, srcIP net.IP) (dhcpLease, error) {
 	leases, err := dhcpLeases()
 	if err != nil {
@@ -144,7 +144,7 @@ func leaseFor(ifname string, srcIP net.IP) (dhcpLease, error) {
 			}
 		}
 	}
-	// voorkeur voor een lease waarvan het IP op een actieve interface staat
+	// prefer a lease whose IP is on an active interface
 	active := map[string]bool{}
 	for _, ifc := range usableIPv4Ifaces() {
 		active[ifc.ip.String()] = true

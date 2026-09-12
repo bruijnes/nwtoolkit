@@ -17,7 +17,7 @@ type dnsOpts struct {
 	server  string // leeg = systeemresolver uit /etc/resolv.conf of Windows
 	qtype   string
 	timeout time.Duration
-	// speedtest
+	// speed test
 	speed    bool
 	monitor  bool
 	interval time.Duration
@@ -25,13 +25,13 @@ type dnsOpts struct {
 	ipv6     bool
 }
 
-// serverAddr geeft host:poort voor de DNS-server, met de host geresolved naar de
-// gekozen IP-familie als het een naam is.
+// serverAddr returns host:port for the DNS server, resolving the host to the chosen
+// IP family if it is a name.
 func serverAddr(server string, v6 bool) string {
 	s := withPort(server)
 	host, port, err := net.SplitHostPort(s)
 	if err != nil || net.ParseIP(host) != nil {
-		return s // al een IP-literal of geen host:poort
+		return s // already an IP literal, or not host:port
 	}
 	ip, err := resolveIP(host, v6)
 	if err != nil {
@@ -74,7 +74,7 @@ func withPort(s string) string {
 	return s + ":53"
 }
 
-// doQuery voert één DNS-query uit en geeft RTT + antwoorden terug.
+// doQuery performs one DNS query and returns the RTT plus the answers.
 func doQuery(server, name string, qtype uint16, timeout time.Duration) (time.Duration, []string, error) {
 	c := &dns.Client{Timeout: timeout}
 	m := new(dns.Msg)
@@ -107,7 +107,7 @@ func cmdDNS(o dnsOpts) {
 		fmt.Printf("Server:  %s\n", server)
 		fmt.Printf("Query:   %s %s\n", o.name, strings.ToUpper(o.qtype))
 		if err != nil {
-			fmt.Printf("Fout:    %s   (%.2f ms)\n", col(cRed, err.Error()), float64(rtt.Microseconds())/1000)
+			fmt.Printf("Error:   %s   (%.2f ms)\n", col(cRed, err.Error()), float64(rtt.Microseconds())/1000)
 			os.Exit(1)
 		}
 		c := cGreen
@@ -115,10 +115,10 @@ func cmdDNS(o dnsOpts) {
 		if ms > 50 {
 			c = cYellow
 		}
-		fmt.Printf("Tijd:    %s\n", col(c, fmt.Sprintf("%.2f ms", ms)))
+		fmt.Printf("Time:    %s\n", col(c, fmt.Sprintf("%.2f ms", ms)))
 		fmt.Println("Antwoord:")
 		if len(ans) == 0 {
-			fmt.Println("  (geen records)")
+			fmt.Println("  (no records)")
 		}
 		for _, a := range ans {
 			fmt.Println("  " + a)
@@ -126,9 +126,9 @@ func cmdDNS(o dnsOpts) {
 		return
 	}
 
-	// speedtest / monitor
+	// speed test / monitor
 	runSpeedGraph(speedGraphCfg{
-		title:    fmt.Sprintf("DNS-speedtest  server=%s  query=%s %s", server, o.name, strings.ToUpper(o.qtype)),
+		title:    fmt.Sprintf("DNS speed test  server=%s  query=%s %s", server, o.name, strings.ToUpper(o.qtype)),
 		unit:     "ms",
 		interval: o.interval,
 		count:    o.count,
@@ -145,7 +145,7 @@ func cmdDNS(o dnsOpts) {
 	})
 }
 
-// ---- gedeelde speedtest+grafiek runner (ook door DHCP gebruikt) ----
+// ---- shared speed test and chart runner (also used by DHCP) ----
 
 type speedGraphCfg struct {
 	title    string
@@ -173,7 +173,7 @@ func runSpeedGraph(cfg speedGraphCfg) {
 			width := 100
 			g := asciigraph.Plot(r.buf,
 				asciigraph.Height(height), asciigraph.Width(width),
-				asciigraph.Caption(fmt.Sprintf("laatste %d metingen (%s)", len(r.buf), cfg.unit)))
+				asciigraph.Caption(fmt.Sprintf("last %d samples (%s)", len(r.buf), cfg.unit)))
 			fmt.Println()
 			fmt.Println(g)
 		}
@@ -181,7 +181,7 @@ func runSpeedGraph(cfg speedGraphCfg) {
 		fmt.Println()
 		last := "-"
 		if lastErr != nil {
-			last = col(cRed, "FOUT: "+lastErr.Error())
+			last = col(cRed, "ERROR: "+lastErr.Error())
 		} else if len(r.buf) > 0 {
 			c := cGreen
 			v := r.buf[len(r.buf)-1]
@@ -190,11 +190,11 @@ func runSpeedGraph(cfg speedGraphCfg) {
 			}
 			last = col(c, fmt.Sprintf("%.2f %s", v, cfg.unit)) + "   " + col(cGrey, lastInfo)
 		}
-		fmt.Printf("laatst: %s\n", last)
-		fmt.Printf("min %.2f %s  gem %.2f %s  max %.2f %s  p95 %.2f %s   metingen %d  fouten %d\n",
+		fmt.Printf("last: %s\n", last)
+		fmt.Printf("min %.2f %s  avg %.2f %s  max %.2f %s  p95 %.2f %s   samples %d  errors %d\n",
 			st.Min, cfg.unit, st.Avg, cfg.unit, st.Max, cfg.unit, percentile(r.buf, 95), cfg.unit, n, lost)
 		if cfg.monitor {
-			fmt.Println(col(cGrey, "\nCtrl+C = stoppen"))
+			fmt.Println(col(cGrey, "\nCtrl+C to stop"))
 		}
 	}
 
@@ -209,9 +209,9 @@ func runSpeedGraph(cfg speedGraphCfg) {
 		if cfg.monitor || cfg.count == 0 {
 			draw(info, err)
 		} else {
-			// eenmalige/vaste-count run: regel per meting
+			// single or fixed-count run: one line per measurement
 			if err != nil {
-				fmt.Printf("  %s  %s\n", nowStamp(), col(cRed, "fout: "+err.Error()))
+				fmt.Printf("  %s  %s\n", nowStamp(), col(cRed, "error: "+err.Error()))
 			} else {
 				fmt.Printf("  %s  %.2f %s   %s\n", nowStamp(), v, cfg.unit, col(cGrey, info))
 			}
@@ -230,7 +230,7 @@ func runSpeedGraph(cfg speedGraphCfg) {
 				st := computeStats(r.buf, lost)
 				fmt.Printf("\n%s\n", st)
 			}
-			fmt.Println("\ngestopt.")
+			fmt.Println("\nstopped.")
 			return
 		case <-time.After(cfg.interval):
 		}

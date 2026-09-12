@@ -56,16 +56,16 @@ func openLLDP(hint string) (capturer, []string, error) {
 		return nil, nil, err
 	}
 	if ifc == nil {
-		return nil, list, fmt.Errorf("geen geschikte interface gevonden; kies er een met -i <naam> (zie -l)")
+		return nil, list, fmt.Errorf("no suitable interface found; pick one with -i <name> (see -l)")
 	}
 	fd, err := unix.Socket(unix.AF_PACKET, unix.SOCK_RAW, int(htons(lldpEtherType)))
 	if err != nil {
-		return nil, list, fmt.Errorf("raw socket openen (root nodig): %w", err)
+		return nil, list, fmt.Errorf("opening raw socket (root required): %w", err)
 	}
 	ll := unix.SockaddrLinklayer{Protocol: htons(lldpEtherType), Ifindex: ifc.Index}
 	if err := unix.Bind(fd, &ll); err != nil {
 		unix.Close(fd)
-		return nil, list, fmt.Errorf("bind op %s: %w", ifc.Name, err)
+		return nil, list, fmt.Errorf("bind on %s: %w", ifc.Name, err)
 	}
 	return &afpacketCap{fd: fd, devnam: ifc.Name}, list, nil
 }
@@ -81,12 +81,12 @@ func (c *afpacketCap) next(timeout time.Duration) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	// AF_PACKET SOCK_RAW levert het frame ZONDER de 14-byte ethernetheader op de meeste
-	// setups mét — afhankelijk van kernel. We krijgen hier het volledige frame inclusief header.
+	// AF_PACKET SOCK_RAW delivers the frame with the 14-byte Ethernet header on most
+	// setups, depending on the kernel. Here we get the complete frame including header.
 	return buf[:n], nil
 }
 
-// Geen pktmon op Linux.
+// No pktmon on Linux.
 func tryPktmon(o lldpOpts) error { return errPktmonUnsupported }
 
 func pktmonCollect(wait time.Duration) (map[string]*lldpNeighbor, error) {

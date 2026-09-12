@@ -2,7 +2,7 @@ package main
 
 import "encoding/binary"
 
-// pcapFrame is een opgevangen frame met een tijdstempel in nanoseconden sinds epoch.
+// pcapFrame is a captured frame with a timestamp in nanoseconds since the epoch.
 type pcapFrame struct {
 	tsNanos int64
 	data    []byte
@@ -16,8 +16,8 @@ func pow10i(n int) int64 {
 	return r
 }
 
-// parsePcapngTS is als parsePcapng maar geeft ook per-pakket tijdstempels terug,
-// rekening houdend met de if_tsresol-optie per interface (default microseconden).
+// parsePcapngTS is like parsePcapng but also returns per-packet timestamps, honouring
+// the per-interface if_tsresol option (microseconds by default).
 func parsePcapngTS(data []byte) []pcapFrame {
 	le := binary.LittleEndian
 	var nanosPerTick []int64 // per interface-index
@@ -78,8 +78,8 @@ func parsePcapngTS(data []byte) []pcapFrame {
 	return out
 }
 
-// parsePcapng haalt de ruwe pakketframes uit een pcapng-bestand (zoals pktmon dat schrijft).
-// Ondersteunt Enhanced Packet Block (0x06) en Simple Packet Block (0x03), little-endian.
+// parsePcapng extracts the raw packet frames from a pcapng file, as pktmon writes it.
+// Supports Enhanced Packet Block (0x06) and Simple Packet Block (0x03), little-endian.
 func parsePcapng(data []byte) [][]byte {
 	var frames [][]byte
 	le := binary.LittleEndian

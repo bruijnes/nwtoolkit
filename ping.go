@@ -23,7 +23,7 @@ func cmdPing(o pingOpts) {
 	}
 	h, err := icmpOpen()
 	if err != nil {
-		die("kan ICMP niet openen: %v", err)
+		die("cannot open ICMP: %v", err)
 	}
 	defer h.close()
 
@@ -36,7 +36,7 @@ func cmdPing(o pingOpts) {
 	if o.host != ip.String() {
 		label = fmt.Sprintf("%s [%s]", o.host, ip)
 	}
-	fmt.Printf("PING %s met %d bytes data\n", label, o.size)
+	fmt.Printf("PING %s with %d bytes of data\n", label, o.size)
 
 	var samples []float64
 	lost := 0
@@ -46,7 +46,7 @@ func cmdPing(o pingOpts) {
 	signal.Notify(sig, os.Interrupt)
 
 	summary := func() {
-		fmt.Printf("\n--- %s ping-statistiek ---\n", o.host)
+		fmt.Printf("\n--- %s ping statistics ---\n", o.host)
 		fmt.Println(computeStats(samples, lost))
 	}
 
@@ -60,21 +60,21 @@ func cmdPing(o pingOpts) {
 		switch {
 		case err != nil:
 			lost++
-			fmt.Printf("  %s  %s\n", nowStamp(), col(cRed, "fout: "+err.Error()))
+			fmt.Printf("  %s  %s\n", nowStamp(), col(cRed, "error: "+err.Error()))
 		case status == ipSuccess:
 			samples = append(samples, ms)
 			c := cGreen
 			if ms > 100 {
 				c = cYellow
 			}
-			fmt.Printf("  %s  antwoord van %-15s  tijd=%s  status=ok\n",
+			fmt.Printf("  %s  reply from %-15s  time=%s  status=ok\n",
 				nowStamp(), peer, col(c, fmt.Sprintf("%.2f ms", ms)))
 		default:
 			lost++
 			if peer == nil || peer.IsUnspecified() {
 				fmt.Printf("  %s  %s\n", nowStamp(), col(cRed, ipStatusText(status)))
 			} else {
-				fmt.Printf("  %s  %s van %s\n", nowStamp(), col(cRed, ipStatusText(status)), peer)
+				fmt.Printf("  %s  %s from %s\n", nowStamp(), col(cRed, ipStatusText(status)), peer)
 			}
 		}
 

@@ -7,9 +7,9 @@ import (
 	"time"
 )
 
-// Op andere platforms (bijv. macOS) is L2-capture niet geïmplementeerd.
+// On other platforms, such as macOS, layer-2 capture is not implemented.
 func openLLDP(hint string) (capturer, []string, error) {
-	return nil, nil, fmt.Errorf("LLDP-capture wordt op dit platform niet ondersteund (alleen Linux en Windows)")
+	return nil, nil, fmt.Errorf("LLDP capture is not supported on this platform (Linux and Windows only)")
 }
 
 var _ = time.Second

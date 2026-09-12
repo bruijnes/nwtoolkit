@@ -8,21 +8,20 @@ import (
 	"strings"
 )
 
-// dhcpProbe gebruikt op Windows uitsluitend boordmiddelen — geen Npcap, geen
-// externe driver. In volgorde van voorkeur:
+// dhcpProbe uses nothing but what Windows ships with — no Npcap, no external
+// driver. In order of preference:
 //
-//  1. Unicast INFORM naar de DHCP-server die Windows zelf al kent (uit het
-//     register). Loopt over een efemere poort, dus botst niet met de
-//     DHCP-Clientservice die poort 68 bezit, en werkt zonder Administrator.
-//  2. Broadcast DISCOVER, opgevangen met de ingebouwde Packet Monitor (pktmon).
-//     Ziet het frame onder de firewall langs, maar vereist Administrator.
-//  3. Broadcast DISCOVER over een gewone UDP-socket op poort 68. Werkt alleen als
-//     de firewall het inkomende antwoord doorlaat.
+//  1. Broadcast INFORM from an ephemeral port. Does not collide with the DHCP
+//     Client service that owns port 68, and works without Administrator.
+//  2. Broadcast DISCOVER captured with the built-in Packet Monitor (pktmon).
+//     Sees the frame below the firewall, but requires Administrator.
+//  3. Broadcast DISCOVER over an ordinary UDP socket on port 68. Only works if
+//     the firewall passes the incoming answer.
 func dhcpProbe(o dhcpOpts) (dhcpResult, error) {
 	if o.ipv6 {
 		return dhcpProbe6(o)
 	}
-	// De gebruiker gaf zelf een server op: gericht meten naar die ene server.
+	// The user named a server: measure that one specifically.
 	if o.server != "" {
 		res, err := dhcpProbeUDP(o)
 		if err == nil && res.method == "" {
@@ -30,28 +29,28 @@ func dhcpProbe(o dhcpOpts) (dhcpResult, error) {
 		}
 		return res, err
 	}
-	// Anders altijd broadcast: het netwerk zelf vragen, zonder voorkennis.
+	// Otherwise always broadcast: ask the network itself, with no prior knowledge.
 	return dhcpDiscoverBroadcast(o)
 }
 
-// dhcpDiscoverBroadcast doet wat een kaal toestel doet dat net op een onbekend
-// netwerk wordt aangesloten: een broadcast DISCOVER naar 255.255.255.255, zonder
-// enige voorkennis van servers. Het antwoord komt terug op poort 68, die op
-// Windows van de DHCP-Clientservice is en door de firewall wordt afgeschermd,
-// dus de betrouwbare weg is de ingebouwde Packet Monitor. Die vereist
-// Administrator; zonder die rechten wordt de gewone socket geprobeerd.
+// dhcpDiscoverBroadcast does what a bare device does when it is first plugged into
+// an unknown network: it asks the segment itself, with no prior knowledge of any
+// server. The INFORM path comes first because it needs no elevation; a real
+// DISCOVER is answered on port 68, which on Windows belongs to the DHCP Client
+// service and is shielded by the firewall, so that path needs Packet Monitor and
+// Administrator rights.
 func dhcpDiscoverBroadcast(o dhcpOpts) (dhcpResult, error) {
 	b := o
-	b.server = "" // geen voorkennis
+	b.server = "" // no prior knowledge
 
-	// 1. Broadcast INFORM vanaf een efemere poort. Werkt zonder verhoogde rechten
-	//    en zonder pktmon, want het antwoord komt terug op onze eigen poort.
+	// 1. Broadcast INFORM from an ephemeral port. Works without elevation and
+	//    without pktmon, because the answer comes back on our own port.
 	res, informErr := dhcpBroadcastInform(b)
 	if informErr == nil {
 		return res, nil
 	}
 
-	// 2. Echte DISCOVER, opgevangen met de ingebouwde pktmon. Vereist Administrator.
+	// 2. A real DISCOVER, captured with the built-in pktmon. Requires Administrator.
 	d := b
 	if d.port == 0 {
 		d.port = 68
@@ -66,7 +65,7 @@ func dhcpDiscoverBroadcast(o dhcpOpts) (dhcpResult, error) {
 		}
 	}
 
-	// 3. Laatste poging: DISCOVER over een gewone socket op poort 68.
+	// 3. Last resort: DISCOVER over an ordinary socket on port 68.
 	if res, err := dhcpProbeUDP(d); err == nil {
 		if res.method == "" {
 			res.method = "broadcast DISCOVER"
@@ -77,23 +76,23 @@ func dhcpDiscoverBroadcast(o dhcpOpts) (dhcpResult, error) {
 	return dhcpResult{}, broadcastFailure(informErr, pktErr, elevated, o)
 }
 
-// broadcastFailure legt uit waarom geen van de broadcast-wegen iets opleverde.
+// broadcastFailure explains why none of the broadcast paths produced anything.
 func broadcastFailure(informErr, pktErr error, elevated bool, o dhcpOpts) error {
 	var b strings.Builder
-	b.WriteString("geen DHCP-server antwoordde op een broadcast")
+	b.WriteString("no DHCP server answered a broadcast")
 	if informErr != nil {
-		fmt.Fprintf(&b, "\n  INFORM naar 255.255.255.255: %v", informErr)
+		fmt.Fprintf(&b, "\n  INFORM to 255.255.255.255: %v", informErr)
 	}
 	switch {
 	case !elevated:
-		b.WriteString("\n  DISCOVER via pktmon: overgeslagen, dat vereist Administrator")
+		b.WriteString("\n  DISCOVER via pktmon: skipped, that requires Administrator")
 	case pktErr != nil && errors.Is(pktErr, errPktmonUnsupported):
-		b.WriteString("\n  DISCOVER via pktmon: pktmon is op deze Windows-versie niet beschikbaar")
+		b.WriteString("\n  DISCOVER via pktmon: pktmon is not available on this Windows version")
 	case pktErr != nil:
 		fmt.Fprintf(&b, "\n  DISCOVER via pktmon: %v", pktErr)
 	}
 	if lease, err := leaseFor(o.iface, o.srcIP); err == nil && lease.server != nil {
-		fmt.Fprintf(&b, "\n  Windows heeft wél een lease van %s op %s; die server negeert onze broadcast",
+		fmt.Fprintf(&b, "\n  Windows does hold a lease from %s on %s; that server ignores our broadcast",
 			lease.server, lease.label())
 	}
 	return errors.New(b.String())

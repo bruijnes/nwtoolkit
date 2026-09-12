@@ -9,10 +9,10 @@ import (
 
 var procGetNetworkParams = iphlpapi.NewProc("GetNetworkParams")
 
-// systemDNS haalt de primaire DNS-server op via GetNetworkParams (FIXED_INFO).
+// systemDNS retrieves the primary DNS server via GetNetworkParams (FIXED_INFO).
 func systemDNS() string {
 	var size uint32
-	// eerste call: benodigde buffergrootte
+	// first call: required buffer size
 	procGetNetworkParams.Call(0, uintptr(unsafe.Pointer(&size)))
 	if size == 0 {
 		size = 2048
@@ -22,7 +22,7 @@ func systemDNS() string {
 	if ret != 0 {
 		return ""
 	}
-	// DnsServerList.IpAddress.String staat op offset 280 (x64), 16-byte C-string
+	// DnsServerList.IpAddress.String sits at offset 280 (x64), a 16-byte C string
 	const off = 280
 	if len(buf) < off+16 {
 		return ""

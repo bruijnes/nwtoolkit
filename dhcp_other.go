@@ -8,7 +8,7 @@ import (
 	"syscall"
 )
 
-// dhcpListen opent een UDP-socket voor DHCP met SO_REUSEADDR en (bij broadcast)
+// dhcpListen opens a UDP socket for DHCP with SO_REUSEADDR and, for broadcast,
 // SO_BROADCAST.
 func dhcpListen(laddr *net.UDPAddr, broadcast bool) (*net.UDPConn, error) {
 	lc := net.ListenConfig{

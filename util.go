@@ -11,7 +11,7 @@ import (
 
 const version = "1.28"
 
-// ANSI kleuren
+// ANSI colours
 const (
 	cReset  = "\033[0m"
 	cRed    = "\033[31m"
@@ -33,10 +33,10 @@ func col(c, s string) string {
 	return c + s + cReset
 }
 
-// resolve4 zet een hostnaam om naar een IPv4-adres.
+// resolve4 resolves a hostname to an IPv4 address.
 func resolve4(host string) (net.IP, error) { return resolveIP(host, false) }
 
-// resolveIP zet een hostnaam om naar een IPv4- of IPv6-adres, afhankelijk van v6.
+// resolveIP resolves a hostname to an IPv4 or IPv6 address, depending on v6.
 func resolveIP(host string, v6 bool) (net.IP, error) {
 	match := func(ip net.IP) net.IP {
 		if v6 {
@@ -55,7 +55,7 @@ func resolveIP(host string, v6 bool) (net.IP, error) {
 		fam = "IPv6"
 	}
 	if ip := net.ParseIP(host); ip != nil {
-		return ip, nil // een letterlijk IP is expliciet; de familie volgt uit het adres zelf
+		return ip, nil // a literal IP is explicit; the family follows from the address itself
 	}
 	ips, err := net.LookupIP(host)
 	if err != nil {
@@ -66,10 +66,10 @@ func resolveIP(host string, v6 bool) (net.IP, error) {
 			return m, nil
 		}
 	}
-	return nil, fmt.Errorf("geen %s-adres gevonden voor %s", fam, host)
+	return nil, fmt.Errorf("no %s address found for %s", fam, host)
 }
 
-// stats berekent min/avg/max/stddev over een reeks RTT's in ms.
+// stats computes min/avg/max/stddev over a series of RTTs in ms.
 type stats struct {
 	Min, Avg, Max, Stddev, Last float64
 	Loss                        float64
@@ -113,11 +113,11 @@ func computeStats(samples []float64, lost int) stats {
 }
 
 func (s stats) String() string {
-	return fmt.Sprintf("min %.2f / avg %.2f / max %.2f / stddev %.2f ms   verlies %.0f%% (%d/%d)",
+	return fmt.Sprintf("min %.2f / avg %.2f / max %.2f / stddev %.2f ms   loss %.0f%% (%d/%d)",
 		s.Min, s.Avg, s.Max, s.Stddev, s.Loss, s.Lost, s.N+s.Lost)
 }
 
-// pXX geeft het p-percentiel.
+// pXX returns the p-th percentile.
 func percentile(samples []float64, p float64) float64 {
 	if len(samples) == 0 {
 		return 0
@@ -134,7 +134,7 @@ func percentile(samples []float64, p float64) float64 {
 	return cp[idx]
 }
 
-// ring houdt de laatste n floats vast voor de grafiek.
+// ring keeps the last n floats for the chart.
 type ring struct {
 	buf []float64
 	max int
@@ -149,7 +149,7 @@ func (r *ring) push(v float64) {
 }
 
 func die(format string, a ...any) {
-	fmt.Fprintf(os.Stderr, col(cRed, "fout: ")+format+"\n", a...)
+	fmt.Fprintf(os.Stderr, col(cRed, "error: ")+format+"\n", a...)
 	os.Exit(1)
 }
 

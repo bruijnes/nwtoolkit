@@ -100,8 +100,19 @@ public partial class MainWindow : Window
     /// <summary>The output boxes share the chart's plot colour, so every text area looks the same.</summary>
     void ApplyTheme()
     {
+        var dark = Theme.IsDark(this);
         var bg = ChartControl.PlotBackground(this);
-        foreach (var tb in new[] { PLog, TrOut, DOut, DhOut, LlOut, AboutLic }) tb.Background = bg;
+        // white text on the grey boxes in dark mode; the theme's normal text colour otherwise
+        var fg = dark ? new SolidColorBrush(Color.FromRgb(0xf4, 0xf4, 0xf4))
+                      : TryFindResource("TextFillColorPrimaryBrush") as Brush ?? Brushes.Black;
+        foreach (var tb in new[] { PLog, TrOut, DOut, DhOut, LlOut, AboutLic })
+        {
+            tb.Background = bg;
+            tb.Foreground = fg;
+            tb.CaretBrush = fg;
+        }
+        foreach (var cb in new[] { PResolve, TrMon, TrResolve }) cb.Foreground = fg;
+        AboutText.Foreground = fg;
         AboutBox.Background = bg;
         AboutBox.BorderBrush = TryFindResource("ControlStrokeColorDefaultBrush") as Brush ?? Brushes.Gray;
         UpdateBar.Background = TryFindResource("SystemFillColorAttentionBackgroundBrush") as Brush

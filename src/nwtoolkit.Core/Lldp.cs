@@ -1,8 +1,6 @@
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.NetworkInformation;
-using System.Net.Sockets;
-using System.Runtime.Versioning;
 using System.Text;
 using static Nwtoolkit.Util;
 
@@ -66,23 +64,8 @@ public sealed class LldpNeighbor
     }
 }
 
-/// <summary>The platform-specific layer-2 capture (Linux AF_PACKET; Windows uses pktmon instead).</summary>
-public interface ICapturer : IDisposable
-{
-    /// <summary>Returns the next frame, or null when nothing arrived within the timeout.</summary>
-    byte[]? Next(TimeSpan timeout);
-    string Device { get; }
-}
-
-/// <summary>This platform has no live layer-2 capture; the built-in pktmon route is used (Windows only).</summary>
-public sealed class NoLiveCaptureException : Exception
-{
-    public NoLiveCaptureException() : base("this platform has no live layer-2 capture; the built-in pktmon is used (Administrator required)") { }
-}
-
 public sealed class LldpOpts
 {
-    public string Iface = "";
     public TimeSpan Wait = TimeSpan.FromSeconds(35);
     public bool Monitor;
     public bool List;
@@ -232,30 +215,29 @@ public static class Lldp
 
     // ---- capture ----
 
-    /// <summary>
-    /// Opens a live capture on the chosen interface. Returns the list of interfaces as
-    /// well, for -l. Throws <see cref="NoLiveCaptureException"/> on Windows, which has no
-    /// built-in API for live layer-2 capture: pcap-style access requires an external
-    /// driver (Npcap/WinPcap) this tool does not want to depend on, so the Windows route
-    /// always goes through the built-in Packet Monitor (pktmon).
-    /// </summary>
-    public static (ICapturer? Cap, List<string> Devs, Exception? Err) Open(string hint)
+    /// <summary>The network interfaces, for `lldp -l`; pktmon captures on all of them at once.</summary>
+    public static List<string> Interfaces()
     {
-        if (OperatingSystem.IsLinux())
+        var list = new List<string>();
+        try
         {
-            try { return LinuxCapture.Open(hint); }
-            catch (Exception e) { return (null, LinuxCapture.List(), e); }
+            foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (nic.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+                list.Add(nic.Name + (nic.OperationalStatus == OperationalStatus.Up ? " (up)" : ""));
+            }
         }
-        if (OperatingSystem.IsWindows()) return (null, new List<string>(), new NoLiveCaptureException());
-        return (null, new List<string>(), new Exception("LLDP capture is not supported on this platform (Linux and Windows only)"));
+        catch { }
+        return list;
     }
 
     /// <summary>
     /// Captures LLDP frames with the built-in Windows Packet Monitor. It simply records
     /// for the whole wait period, because LLDP is announced periodically and there is
-    /// nothing to send ourselves.
+    /// nothing to send ourselves. Windows has no built-in API for live layer-2 capture
+    /// (that needs Npcap or another driver), so pktmon is the only route this tool uses.
     /// </summary>
-    public static Dictionary<string, LldpNeighbor> PktmonCollect(TimeSpan wait)
+    public static Dictionary<string, LldpNeighbor> Collect(TimeSpan wait)
     {
         if (wait <= TimeSpan.Zero) wait = TimeSpan.FromSeconds(35);
         var data = Pktmon.Capture("lldp", () =>
@@ -275,15 +257,31 @@ public static class Lldp
         return neighbors;
     }
 
-    /// <summary>The console variant of the pktmon route: capture and display, looping with -m.</summary>
-    static void TryPktmon(LldpOpts o)
+    public static void Run(LldpOpts o)
     {
-        if (Pktmon.Path() == null) throw new PktmonUnsupportedException();
+        if (o.List)
+        {
+            var devs = Interfaces();
+            Console.WriteLine(devs.Count == 0 ? "no interfaces found." : "Available interfaces:");
+            foreach (var d in devs) Console.WriteLine("  " + d);
+            return;
+        }
+        if (Pktmon.Path() == null)
+        {
+            Die("LLDP capture uses the built-in Packet Monitor (pktmon), which is only available on Windows 10 and later");
+            return;
+        }
         Console.WriteLine($"{Col(CBold, "nwtoolkit")}  using the built-in pktmon (Administrator required).");
         while (true)
         {
-            Console.WriteLine(Col(CGrey, $"Capturing for {o.Wait.TotalSeconds.F(0)}s…"));
-            var neighbors = PktmonCollect(o.Wait);
+            Console.WriteLine(Col(CGrey, $"Capturing for {o.Wait.TotalSeconds.F(0)}s\u2026"));
+            Dictionary<string, LldpNeighbor> neighbors;
+            try { neighbors = Collect(o.Wait); }
+            catch (Exception e)
+            {
+                Die(e.Message);
+                return;
+            }
             if (neighbors.Count == 0)
             {
                 Console.WriteLine(Col(CYellow, "No LLDP frames captured."));
@@ -306,250 +304,10 @@ public static class Lldp
         }
     }
 
-    public static void Run(LldpOpts o)
+    /// <summary>One capture for the GUI: the neighbours seen within the wait time.</summary>
+    public static List<LldpNeighbor> Once(TimeSpan wait)
     {
-        var (cap, devs, err) = Open(o.Iface);
-        if (o.List)
-        {
-            if (devs.Count == 0) Console.WriteLine("no interfaces found.");
-            Console.WriteLine("Available interfaces:");
-            foreach (var d in devs) Console.WriteLine("  " + d);
-            cap?.Dispose();
-            return;
-        }
-        if (err != null)
-        {
-            // No live capture? Use the built-in pktmon route (Windows).
-            if (err is NoLiveCaptureException)
-            {
-                try
-                {
-                    TryPktmon(o);
-                    return;
-                }
-                catch (PktmonUnsupportedException) { }
-                catch (Exception e)
-                {
-                    Die(e.Message);
-                    return;
-                }
-            }
-            Die(err.Message);
-            return;
-        }
-        using (cap)
-        {
-            Console.WriteLine($"{Col(CBold, "nwtoolkit")}  listening on {Col(CCyan, cap!.Device)} for LLDP frames…");
-            Console.WriteLine(Col(CGrey, "LLDP is usually sent every 30 s, so this may take a while. Ctrl+C to stop."));
-
-            using var ctrlC = new CtrlC();
-            var neighbors = new Dictionary<string, LldpNeighbor>();
-            var deadline = DateTime.UtcNow + o.Wait;
-
-            while (true)
-            {
-                if (ctrlC.Pressed)
-                {
-                    Console.WriteLine($"\n{neighbors.Count} LLDP neighbour(s) seen.");
-                    return;
-                }
-                if (!o.Monitor && DateTime.UtcNow > deadline && neighbors.Count == 0)
-                {
-                    Console.WriteLine(Col(CYellow, "\nNo LLDP frames received within the wait time."));
-                    Console.WriteLine(Col(CGrey, "LLDP may be disabled on the switch, or it is an unmanaged switch. (On Windows: run as Administrator.)"));
-                    return;
-                }
-
-                var frame = cap.Next(TimeSpan.FromSeconds(1));
-                if (frame == null) continue;
-                var nb = Parse(frame);
-                if (nb == null) continue;
-                nb.LocalIf = cap.Device;
-                var existed = neighbors.ContainsKey(nb.Key);
-                neighbors[nb.Key] = nb;
-
-                if (o.Monitor)
-                {
-                    Console.Write(ClrScr);
-                    Console.WriteLine($"{Col(CBold, "nwtoolkit")}  LLDP monitor   {neighbors.Count} neighbour(s)   Ctrl+C to stop");
-                    foreach (var n in Sorted(neighbors))
-                    {
-                        Console.WriteLine();
-                        n.PrintBlock();
-                        Console.WriteLine($"  {"Last seen:",-16} {n.LastSeen:HH:mm:ss}");
-                    }
-                }
-                else if (!existed)
-                {
-                    Console.WriteLine();
-                    nb.PrintBlock();
-                    return; // one-shot: stop as soon as we have a neighbour
-                }
-            }
-        }
-    }
-
-    /// <summary>
-    /// Captures LLDP neighbours until the first one is seen or wait elapses. Used by the
-    /// GUI. Returns the neighbours and the device they were seen on.
-    /// </summary>
-    public static (List<LldpNeighbor> Neighbors, string Device) Once(string hint, TimeSpan wait)
-    {
-        var (cap, _, err) = Open(hint);
-        if (err != null)
-        {
-            // No live capture? Fall back to the built-in pktmon (Windows, Administrator).
-            if (err is NoLiveCaptureException)
-            {
-                try
-                {
-                    return (Sorted(PktmonCollect(wait)), "pktmon");
-                }
-                catch (PktmonUnsupportedException)
-                {
-                    throw err;
-                }
-            }
-            throw err;
-        }
-        using (cap)
-        {
-            var neighbors = new Dictionary<string, LldpNeighbor>();
-            var deadline = DateTime.UtcNow + wait;
-            while (DateTime.UtcNow < deadline)
-            {
-                var frame = cap!.Next(TimeSpan.FromSeconds(1));
-                if (frame != null && Parse(frame) is { } nb)
-                {
-                    nb.LocalIf = cap.Device;
-                    neighbors[nb.Key] = nb;
-                }
-                if (neighbors.Count > 0 && DateTime.UtcNow + TimeSpan.FromSeconds(2) > deadline) break;
-            }
-            return (Sorted(neighbors), cap!.Device);
-        }
-    }
-}
-
-/// <summary>Live LLDP capture on Linux through an AF_PACKET socket bound to one interface (root required).</summary>
-[SupportedOSPlatform("linux")]
-public static class LinuxCapture
-{
-    /// <summary>sockaddr_ll for binding a packet socket to an interface.</summary>
-    sealed class PacketEndPoint : EndPoint
-    {
-        readonly int ifIndex;
-        readonly ushort protocol;
-        public PacketEndPoint(int ifIndex, ushort protocol)
-        {
-            this.ifIndex = ifIndex;
-            this.protocol = protocol;
-        }
-        public override AddressFamily AddressFamily => AddressFamily.Packet;
-        public override SocketAddress Serialize()
-        {
-            // family(2) protocol(2, network order) ifindex(4, host order) hatype(2) pkttype(1) halen(1) addr(8)
-            var sa = new SocketAddress(AddressFamily.Packet, 20);
-            sa[2] = (byte)(protocol >> 8);
-            sa[3] = (byte)protocol;
-            var idx = BitConverter.GetBytes(ifIndex);
-            for (var i = 0; i < 4; i++) sa[4 + i] = idx[i];
-            return sa;
-        }
-        public override EndPoint Create(SocketAddress socketAddress) => this;
-    }
-
-    sealed class Capturer : ICapturer
-    {
-        readonly Socket sock;
-        public string Device { get; }
-        public Capturer(Socket sock, string device)
-        {
-            this.sock = sock;
-            Device = device;
-        }
-        public byte[]? Next(TimeSpan timeout)
-        {
-            sock.ReceiveTimeout = Math.Max(1, (int)timeout.TotalMilliseconds);
-            var buf = new byte[2048];
-            try
-            {
-                var n = sock.Receive(buf);
-                return n > 0 ? buf[..n] : null;
-            }
-            catch (SocketException)
-            {
-                return null;
-            }
-        }
-        public void Dispose() => sock.Dispose();
-    }
-
-    static int IfIndex(string name)
-    {
-        try { return int.Parse(File.ReadAllText($"/sys/class/net/{name}/ifindex").Trim()); }
-        catch { return -1; }
-    }
-
-    public static List<string> List()
-    {
-        var list = new List<string>();
-        try
-        {
-            foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
-            {
-                if (nic.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
-                list.Add(nic.Name + (nic.OperationalStatus == OperationalStatus.Up ? " (up)" : ""));
-            }
-        }
-        catch { }
-        return list;
-    }
-
-    static (NetworkInterface? Chosen, List<string> List) Pick(string hint)
-    {
-        var list = new List<string>();
-        NetworkInterface? chosen = null;
-        foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
-        {
-            if (nic.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
-            var up = nic.OperationalStatus == OperationalStatus.Up;
-            list.Add(nic.Name + (up ? " (up)" : ""));
-            if (hint != "")
-            {
-                if (nic.Name == hint) chosen = nic;
-                continue;
-            }
-            if (chosen == null && up && nic.GetIPProperties().UnicastAddresses.Count > 0) chosen = nic;
-        }
-        return (chosen, list);
-    }
-
-    public static (ICapturer? Cap, List<string> Devs, Exception? Err) Open(string hint)
-    {
-        var (nic, list) = Pick(hint);
-        if (nic == null) return (null, list, new Exception("no suitable interface found; pick one with -i <name> (see -l)"));
-        var idx = IfIndex(nic.Name);
-        if (idx < 0) return (null, list, new Exception($"cannot determine the index of {nic.Name}"));
-        var proto = (ushort)(((Lldp.EtherType & 0xff) << 8) | (Lldp.EtherType >> 8)); // htons
-        Socket sock;
-        try
-        {
-            sock = new Socket(AddressFamily.Packet, SocketType.Raw, (ProtocolType)proto);
-        }
-        catch (SocketException e)
-        {
-            return (null, list, new Exception($"opening raw socket (root required): {e.Message}"));
-        }
-        try
-        {
-            sock.Bind(new PacketEndPoint(idx, Lldp.EtherType));
-        }
-        catch (SocketException e)
-        {
-            sock.Dispose();
-            return (null, list, new Exception($"bind on {nic.Name}: {e.Message}"));
-        }
-        return (new Capturer(sock, nic.Name), list, null);
+        if (Pktmon.Path() == null) throw new PktmonUnsupportedException();
+        return Sorted(Collect(wait));
     }
 }

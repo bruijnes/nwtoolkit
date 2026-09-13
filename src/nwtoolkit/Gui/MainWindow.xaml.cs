@@ -143,12 +143,6 @@ public partial class MainWindow : Window
         DhIf.Items.Add("(automatic)");
         foreach (var ic in Dhcp.UsableIPv4Ifaces()) DhIf.Items.Add($"{ic.Name}  ({ic.Ip})");
         DhIf.SelectedIndex = 0;
-
-        Task.Run(() =>
-        {
-            var (_, devs, _) = Lldp.Open("");
-            if (devs.Count > 0) Sync(() => { foreach (var d in devs) LlIf.Items.Add(d); });
-        });
     }
 
     // ---- helpers ----
@@ -413,7 +407,6 @@ public partial class MainWindow : Window
     void FindNeighbour(object sender, RoutedEventArgs e)
     {
         if (!EnsureElevated("LLDP capture needs administrator rights.")) return;
-        var hint = LlIf.Text.Trim();
         var wait = Dur(Atof(LlWait.Text, 35));
         LlOut.Text = "Searching for LLDP frames… this can take up to ~30 s.\r\n";
         SetStatus("Searching for LLDP…");
@@ -423,10 +416,10 @@ public partial class MainWindow : Window
             string txt, st;
             try
             {
-                var (nbs, dev) = Lldp.Once(hint, wait);
+                var nbs = Lldp.Once(wait);
                 if (nbs.Count == 0)
                 {
-                    txt = $"No LLDP neighbour seen on {dev}.\r\nLLDP may be disabled, or it is an unmanaged switch.";
+                    txt = "No LLDP neighbour seen.\r\nLLDP may be disabled, or it is an unmanaged switch.";
                     st = "LLDP: no neighbour.";
                 }
                 else

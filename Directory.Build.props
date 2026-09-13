@@ -10,7 +10,7 @@
     <DebugType>embedded</DebugType>
 
     <!-- One version for the whole product. Displayed in the window title and `nwtoolkit version`. -->
-    <Version>0.5</Version>
+    <Version>0.6</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Authors>Vincent Bruijnes</Authors>
     <Company>Vincent Bruijnes</Company>

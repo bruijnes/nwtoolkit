@@ -54,11 +54,10 @@ Commands:
       -c <n>       fixed number of measurements
 
   lldp                       show LLDP neighbour (connected switch/port)
-      -l           list available interfaces
-      -i <name>    pick interface (part of name/description)
+      -l           list network interfaces
       -w <s>       wait time in seconds for a single capture (default 35)
       -m           keep monitoring
-      (Windows: uses the built-in pktmon; Administrator required)
+      (uses the built-in pktmon; Administrator required)
 
 
 Examples:
@@ -276,7 +275,6 @@ Examples:
     {
         var (_, rest) = SplitArgs(args, new HashSet<string> { "m", "l" });
         var fs = new FlagSet("lldp");
-        var i = fs.String("i", "");
         var w = fs.Double("w", 35);
         var m = fs.Bool("m");
         var l = fs.Bool("l");
@@ -295,7 +293,7 @@ Examples:
             }
             return;
         }
-        Lldp.Run(new LldpOpts { Iface = i.Value, Wait = Dur(w.Value), Monitor = m.Value, List = l.Value });
+        Lldp.Run(new LldpOpts { Wait = Dur(w.Value), Monitor = m.Value, List = l.Value });
     }
 
     // ---- interactive menu (when the exe is started without arguments in a terminal) ----
@@ -372,9 +370,8 @@ Examples:
                 }
                 case "6":
                 {
-                    var iface = Ask("  Interface (empty=automatic, or part of the name)", "");
                     var mon = Yes("  Monitor continuously? (y/n)", "n");
-                    Lldp.Run(new LldpOpts { Iface = iface, Wait = TimeSpan.FromSeconds(35), Monitor = mon });
+                    Lldp.Run(new LldpOpts { Wait = TimeSpan.FromSeconds(35), Monitor = mon });
                     break;
                 }
                 case "0": case "q": case "": case "":

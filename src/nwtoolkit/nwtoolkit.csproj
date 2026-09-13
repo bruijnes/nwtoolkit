@@ -38,6 +38,8 @@
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <UseAppHost>true</UseAppHost>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
 
     <!--
       Trimming halves the exe by dropping the parts of the runtime this app never
@@ -73,5 +75,23 @@
     <!-- the icon is also a WPF resource so the window can show it -->
     <Resource Include="nwtoolkit.ico" />
   </ItemGroup>
+
+  <!--
+    Files the runtime packs put in the bundle that this app never loads:
+    - WPF theme assemblies for XP, Media Center and Windows 7 (Windows 10 and 11 only
+      ever load Aero2, Classic and AeroLite) and the Ribbon control library;
+    - debugger and crash-dump support (mscordaccore, mscordbi, DiaSymReader), which
+      only matter with a debugger attached or symbols present;
+    - the standalone GC builds (clrgc, clrgcexp), only used when selected by config;
+    - msquic, only loaded for HTTP/3.
+    Dropping them takes about 9 MB off the uncompressed bundle.
+  -->
+  <Target Name="DropUnusedBundleFiles" AfterTargets="ComputeResolvedFilesToPublishList" BeforeTargets="_ComputeFilesToBundle">
+    <ItemGroup>
+      <_Keep Include="@(ResolvedFileToPublish)" />
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" />
+      <ResolvedFileToPublish Include="@(_Keep)" Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('%(Filename)', '^(PresentationFramework\.(Luna|Royale|Aero)|System\.Windows\.Controls\.Ribbon|mscordaccore.*|mscordbi|Microsoft\.DiaSymReader\.Native\.amd64|clrgc|clrgcexp|msquic)$'))" />
+    </ItemGroup>
+  </Target>
 
 </Project>

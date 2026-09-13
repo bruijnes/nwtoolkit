@@ -8,7 +8,6 @@ namespace Nwtoolkit;
 public readonly record struct EchoResult(IPAddress? Peer, TimeSpan Rtt, IPStatus Status, string? Error)
 {
     public double Ms => Util.Ms(Rtt);
-    public bool Ok => Error == null && Status == IPStatus.Success;
 
     /// <summary>True when nobody answered: a timeout, an error, or a reply without a source address.</summary>
     public bool NoAnswer => Error != null || Status == IPStatus.TimedOut || Peer == null

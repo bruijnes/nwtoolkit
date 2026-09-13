@@ -201,8 +201,6 @@
             </Grid.RowDefinitions>
             <GroupBox Grid.Row="0" Header="Settings" Style="{StaticResource Card}">
               <WrapPanel>
-                <TextBlock Text="Interface:" Style="{StaticResource Lbl}"/>
-                <ComboBox x:Name="LlIf" Width="260" IsEditable="True" Margin="0,0,12,0" VerticalAlignment="Center"/>
                 <TextBlock Text="Wait (s):" Style="{StaticResource Lbl}"/>
                 <TextBox x:Name="LlWait" Width="60" Text="35" Style="{StaticResource In}"/>
                 <Button Content="Find neighbour" Click="FindNeighbour" Style="{StaticResource Btn}" MinWidth="120"/>

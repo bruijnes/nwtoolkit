@@ -174,7 +174,7 @@ sealed class MainForm : Form
 
     static GroupBox Group(string title, Control content, int pad = 8)
     {
-        var g = new GroupBox { Text = title, Dock = DockStyle.Fill, Padding = new Padding(pad, pad + 4, pad, pad), Margin = new Padding(0, 0, 0, 8) };
+        var g = new FramedGroupBox { Text = title, Dock = DockStyle.Fill, Padding = new Padding(pad, pad + 4, pad, pad), Margin = new Padding(0, 0, 0, 8) };
         content.Dock = DockStyle.Fill;
         g.Controls.Add(content);
         return g;
@@ -313,21 +313,9 @@ sealed class MainForm : Form
         StartPosition = FormStartPosition.WindowsDefaultLocation;
         LoadIcon();
 
-        var tabs = new TabControl { Font = tabFont };
+        // FramedTabControl repaints the bright page frame grey in dark mode.
+        var tabs = new FramedTabControl { Dock = DockStyle.Fill, Font = tabFont };
         tabs.TabPages.AddRange(new[] { BuildPingPage(), BuildTracePage(), BuildDnsPage(), BuildDnsSpeedPage(), BuildDhcpPage(), BuildLldpPage(), BuildAboutPage() });
-
-        // The native tab control draws a thick bright frame around the page, which looks
-        // wrong in dark mode. The control is made a little larger than its host panel so
-        // the left, right and bottom edges of that frame fall outside the visible area.
-        var tabHost = new Panel { Dock = DockStyle.Fill };
-        tabHost.Controls.Add(tabs);
-        void FitTabs()
-        {
-            var o = (int)(3 * DeviceDpi / 96f);
-            tabs.Bounds = new Rectangle(-o, 0, tabHost.Width + 2 * o, tabHost.Height + o);
-        }
-        tabHost.Resize += (_, _) => FitTabs();
-        FitTabs();
 
         // The IP version choice sits on the tab strip itself, at the right, so it does
         // not cost a row of its own: a small panel laid over the TabControl's header area.
@@ -343,7 +331,7 @@ sealed class MainForm : Form
         var strip = new StatusStrip { SizingGrip = true };
         strip.Items.Add(status);
 
-        Controls.Add(tabHost);
+        Controls.Add(tabs);
         Controls.Add(top);
         Controls.Add(strip);
         top.BringToFront();
@@ -352,7 +340,7 @@ sealed class MainForm : Form
         {
             var margin = (int)(12 * DeviceDpi / 96f);
             // The window must at least fit every tab header plus the picker, or they overlap.
-            var tabsRight = tabs.TabCount > 0 ? tabs.GetTabRect(tabs.TabCount - 1).Right + tabs.Left : 0;
+            var tabsRight = tabs.TabCount > 0 ? tabs.GetTabRect(tabs.TabCount - 1).Right : 0;
             var needClientW = tabsRight + top.Width + 3 * margin;
             var chrome = Width - ClientSize.Width;
             if (MinimumSize.Width < needClientW + chrome) MinimumSize = new Size(needClientW + chrome, MinimumSize.Height);

@@ -88,12 +88,12 @@ sealed class ChartControl : Control
         Text: Color.FromArgb(0x6a, 0x70, 0x78));
 
     static readonly Palette dark = new(
-        Bg: Color.FromArgb(0x20, 0x20, 0x20),
-        Border: Color.FromArgb(0x50, 0x54, 0x58),
-        Grid: Color.FromArgb(0x33, 0x36, 0x3a),
-        Line: Color.FromArgb(0x6f, 0xc7, 0xcb),
-        Band: Color.FromArgb(0x2c, 0x50, 0x52),
-        Text: Color.FromArgb(0xb0, 0xb4, 0xb8));
+        Bg: Color.FromArgb(0x3c, 0x3c, 0x3c),     // a shade lighter than the window, so the plot stands out
+        Border: Color.FromArgb(0x6a, 0x6e, 0x72),
+        Grid: Color.FromArgb(0x50, 0x54, 0x58),
+        Line: Color.FromArgb(0xf4, 0xf4, 0xf4),   // white line for contrast
+        Band: Color.FromArgb(0x8c, 0x90, 0x94),
+        Text: Color.FromArgb(0xd0, 0xd4, 0xd8));
 
     public ChartControl()
     {

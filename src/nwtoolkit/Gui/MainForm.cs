@@ -294,10 +294,12 @@ sealed class MainForm : Form
     {
         Text = $"nwtoolkit {Util.Version} — network diagnostics";
         Font = uiFont;
-        MinimumSize = new Size(520, 380);
-        Size = new Size(1000, 700);
-        StartPosition = FormStartPosition.WindowsDefaultLocation;
+        // All sizes below are in 96-dpi pixels; WinForms scales them to the screen's dpi.
+        AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
+        MinimumSize = new Size(640, 420);
+        Size = new Size(1100, 740);
+        StartPosition = FormStartPosition.WindowsDefaultLocation;
         LoadIcon();
 
         var tabs = new TabControl { Dock = DockStyle.Fill, Font = tabFont };
@@ -324,8 +326,16 @@ sealed class MainForm : Form
 
         void PlaceIpVersion()
         {
+            var margin = (int)(12 * DeviceDpi / 96f);
+            // The window must at least fit every tab header plus the picker, or they overlap.
+            var tabsRight = tabs.TabCount > 0 ? tabs.GetTabRect(tabs.TabCount - 1).Right : 0;
+            var needClientW = tabsRight + top.Width + 3 * margin;
+            var chrome = Width - ClientSize.Width;
+            if (MinimumSize.Width < needClientW + chrome) MinimumSize = new Size(needClientW + chrome, MinimumSize.Height);
+            if (ClientSize.Width < needClientW) ClientSize = new Size(needClientW, ClientSize.Height);
+
             var headerH = tabs.DisplayRectangle.Y; // height of the tab strip above the pages
-            top.Left = ClientSize.Width - top.Width - (int)(12 * DeviceDpi / 96f);
+            top.Left = ClientSize.Width - top.Width - margin;
             top.Top = Math.Max(0, (headerH - top.Height) / 2);
         }
         Load += (_, _) =>

@@ -19,6 +19,12 @@
     <ApplicationIcon>nwtoolkit.ico</ApplicationIcon>
     <ApplicationManifest>nwtoolkit.manifest</ApplicationManifest>
     <StartupObject>Nwtoolkit.Program</StartupObject>
+    <!--
+      Directory.Build.props switches globalization to invariant mode for the library and
+      the tests, but WPF needs real culture data (it looks up "en-US" for bindings and
+      text formatting) and Windows ships ICU, so the exe runs with globalization on.
+    -->
+    <InvariantGlobalization>false</InvariantGlobalization>
     <!-- WPF0001: the ThemeMode API (Fluent theme, light/dark) is still marked experimental -->
     <NoWarn>$(NoWarn);WPF0001</NoWarn>
 

@@ -11,7 +11,7 @@ namespace Nwtoolkit;
 public sealed class DhcpOpts
 {
     /// <summary>How long one measurement waits for a server; fixed, not a user setting.</summary>
-    public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(60);
+    public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(5);
     public static readonly TimeSpan DefaultInterval = TimeSpan.FromSeconds(1);
 
     public string Server = "";   // empty = broadcast; set = unicast INFORM

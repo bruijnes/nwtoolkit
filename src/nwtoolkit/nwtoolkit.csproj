@@ -31,6 +31,17 @@
     <PublishSingleFile>true</PublishSingleFile>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+
+    <!--
+      Trimming halves the exe (about 48 MB to 24 MB) by dropping the parts of the
+      runtime this app never touches. WinForms itself is not trimmable and stays
+      intact; only the framework libraries are trimmed. The SDK refuses trimming for
+      WinForms apps by default (NETSDK1175), hence the suppression. If a control ever
+      misbehaves after publishing, this block is the first thing to switch off.
+    -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <_SuppressWinFormsTrimError>true</_SuppressWinFormsTrimError>
     <UseAppHost>true</UseAppHost>
   </PropertyGroup>
 

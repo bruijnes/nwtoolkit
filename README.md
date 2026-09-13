@@ -91,8 +91,9 @@ dotnet test tests/nwtoolkit.Tests
 dotnet publish src/nwtoolkit -c Release -o dist
 ```
 
-The result is one `nwtoolkit.exe` of roughly 50 MB, because the .NET runtime and
-WinForms are bundled into it; that is what makes it run on a clean machine.
+The result is one `nwtoolkit.exe` of roughly 25 MB: the .NET runtime and WinForms
+are bundled into it, which is what makes it run on a clean machine, and the
+unused parts of the runtime are trimmed away.
 
 The publish settings (win-x64, self-contained, single file) live in
 `src/nwtoolkit/nwtoolkit.csproj`, so the same command works from Windows, Linux

@@ -112,6 +112,7 @@ public sealed record DhcpLease(string Name, IPAddress? Ip, IPAddress Server, boo
                 if (nic.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
                 var props = nic.GetIPProperties();
                 IPAddress? server = null;
+                if (OperatingSystem.IsMacOS()) continue; // no DHCP server info exposed there
                 try
                 {
                     server = props.DhcpServerAddresses.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork && !a.Equals(IPAddress.Any));

@@ -71,6 +71,7 @@ sealed class MainForm : Form
         try
         {
             ApplicationConfiguration.Initialize();
+            Application.SetColorMode(SystemColorMode.System); // follow the Windows "default app mode" (light/dark)
             Application.ThreadException += (_, e) => CrashLog(e.Exception);
             Application.Run(new MainForm());
         }
@@ -125,6 +126,7 @@ sealed class MainForm : Form
     /// </summary>
     static void ClassicScrollbars(Control c)
     {
+        if (Application.IsDarkModeEnabled) return; // dark mode brings its own scrollbar theme; keep it
         c.HandleCreated += (_, _) =>
         {
             try { SetWindowTheme(c.Handle, "", ""); } catch { }

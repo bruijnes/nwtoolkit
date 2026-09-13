@@ -75,12 +75,25 @@ sealed class ChartControl : Control
 {
     public ChartData? Data;
     static readonly Font axisFont = new("Segoe UI", 8f);
-    static readonly Color bg = Color.FromArgb(0xf0, 0xf0, 0xf0); // same grey as the log box
-    static readonly Color borderC = Color.FromArgb(0xc8, 0xcc, 0xd0);
-    static readonly Color gridC = Color.FromArgb(0xe6, 0xe8, 0xea);
-    static readonly Color lineC = Color.FromArgb(0x19, 0x4b, 0x4d);
-    static readonly Color bandC = Color.FromArgb(0xbf, 0xd6, 0xd7);
-    static readonly Color textC = Color.FromArgb(0x6a, 0x70, 0x78);
+
+    /// <summary>Chart colours for the light and the dark app mode.</summary>
+    sealed record Palette(Color Bg, Color Border, Color Grid, Color Line, Color Band, Color Text);
+
+    static readonly Palette light = new(
+        Bg: Color.FromArgb(0xf0, 0xf0, 0xf0), // same grey as the log box
+        Border: Color.FromArgb(0xc8, 0xcc, 0xd0),
+        Grid: Color.FromArgb(0xe6, 0xe8, 0xea),
+        Line: Color.FromArgb(0x19, 0x4b, 0x4d),
+        Band: Color.FromArgb(0xbf, 0xd6, 0xd7),
+        Text: Color.FromArgb(0x6a, 0x70, 0x78));
+
+    static readonly Palette dark = new(
+        Bg: Color.FromArgb(0x20, 0x20, 0x20),
+        Border: Color.FromArgb(0x50, 0x54, 0x58),
+        Grid: Color.FromArgb(0x33, 0x36, 0x3a),
+        Line: Color.FromArgb(0x6f, 0xc7, 0xcb),
+        Band: Color.FromArgb(0x2c, 0x50, 0x52),
+        Text: Color.FromArgb(0xb0, 0xb4, 0xb8));
 
     public ChartControl()
     {
@@ -93,8 +106,9 @@ sealed class ChartControl : Control
     {
         var g = e.Graphics;
         var b = ClientRectangle;
-        g.Clear(bg);
-        using var border = new Pen(borderC);
+        var p = Application.IsDarkModeEnabled ? dark : light;
+        g.Clear(p.Bg);
+        using var border = new Pen(p.Border);
         g.DrawRectangle(border, b.X, b.Y, b.Width - 1, b.Height - 1);
         if (Data == null) return;
         var (vals, times, _, _) = Data.Snapshot();
@@ -126,8 +140,8 @@ sealed class ChartControl : Control
         int Gx(int i, int n) => n < 2 ? x0 : x0 + (int)((long)plotW * i / (n - 1));
         int Gy(double v) => y0 + plotH - (int)(plotH * ((v - mn) / (mx - mn)));
 
-        using var grid = new Pen(gridC);
-        using var textBrush = new SolidBrush(textC);
+        using var grid = new Pen(p.Grid);
+        using var textBrush = new SolidBrush(p.Text);
         using var fmtRight = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center, FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.NoClip };
         for (var k = 0; k <= 4; k++)
         {
@@ -139,7 +153,7 @@ sealed class ChartControl : Control
         }
 
         var n = vals.Length;
-        using var linePen = new Pen(lineC, 2f);
+        using var linePen = new Pen(p.Line, 2f);
         if (n >= 2 && n <= plotW)
         {
             // enough width: a plain line through every point
@@ -150,7 +164,7 @@ sealed class ChartControl : Control
         else if (n > plotW)
         {
             // more samples than pixels: compress per column into a min/max band plus an average line
-            using var bandPen = new Pen(bandC);
+            using var bandPen = new Pen(p.Band);
             var avgPts = new List<Point>(plotW);
             for (var cix = 0; cix < plotW; cix++)
             {
@@ -177,7 +191,7 @@ sealed class ChartControl : Control
         if (n >= 2)
         {
             var yLab = y0 + plotH + 5 * scale;
-            using var axisTick = new Pen(borderC);
+            using var axisTick = new Pen(p.Border);
             var ticks = plotW < 360 * scale ? 3 : 5;
             for (var t = 0; t <= ticks; t++)
             {

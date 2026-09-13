@@ -18,6 +18,8 @@
     <ApplicationIcon>nwtoolkit.ico</ApplicationIcon>
     <ApplicationManifest>nwtoolkit.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <!-- WFO5001: the dark-mode API (SetColorMode / IsDarkModeEnabled) is still marked experimental -->
+    <NoWarn>$(NoWarn);WFO5001</NoWarn>
     <StartupObject>Nwtoolkit.Program</StartupObject>
 
     <!-- lets Linux/macOS build and publish the Windows target (CI runs on ubuntu) -->

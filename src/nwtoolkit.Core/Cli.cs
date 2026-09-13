@@ -103,6 +103,8 @@ Examples:
                     break;
                 case "version": case "-v": case "--version":
                     Console.WriteLine("nwtoolkit " + Util.Version);
+                    if (UpdateCheck.Latest(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult() is { } upd)
+                        Console.WriteLine(Col(CYellow, $"update available: {upd.Latest}") + "  " + upd.Url);
                     break;
                 case "ping":
                     RunPing(rest);

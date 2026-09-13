@@ -48,6 +48,14 @@
       <TextBlock x:Name="Status" Text="Ready."/>
     </StatusBar>
 
+    <!-- shown only when GitHub has a newer release -->
+    <Border x:Name="UpdateBar" DockPanel.Dock="Top" Visibility="Collapsed" Margin="8,8,8,0" Padding="12,8" CornerRadius="4" BorderThickness="1">
+      <TextBlock VerticalAlignment="Center">
+        <Run x:Name="UpdateText"/>
+        <Hyperlink x:Name="UpdateLink" RequestNavigate="OpenLink">Open the download page</Hyperlink>
+      </TextBlock>
+    </Border>
+
     <Grid>
       <TabControl x:Name="Tabs" Margin="8,8,8,4">
 

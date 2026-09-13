@@ -48,7 +48,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    # Runs only for version tags, e.g. `git tag v1.28 && git push --tags`.
+    # Runs only for version tags, e.g. `git tag v0.1 && git push --tags`.
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest

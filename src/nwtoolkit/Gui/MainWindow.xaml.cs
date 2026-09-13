@@ -71,6 +71,7 @@ public partial class MainWindow : Window
         {
             ApplyTheme();
             PopulateInterfaces();
+            CheckForUpdate();
         };
         Closing += (_, _) =>
         {
@@ -103,6 +104,25 @@ public partial class MainWindow : Window
         foreach (var tb in new[] { PLog, TrOut, DOut, DhOut, LlOut, AboutLic }) tb.Background = bg;
         AboutBox.Background = bg;
         AboutBox.BorderBrush = TryFindResource("ControlStrokeColorDefaultBrush") as Brush ?? Brushes.Gray;
+        UpdateBar.Background = TryFindResource("SystemFillColorAttentionBackgroundBrush") as Brush
+                               ?? new SolidColorBrush(Theme.IsDark(this) ? Color.FromRgb(0x2b, 0x3d, 0x52) : Color.FromRgb(0xe6, 0xf0, 0xfb));
+        UpdateBar.BorderBrush = TryFindResource("ControlStrokeColorDefaultBrush") as Brush ?? Brushes.Gray;
+    }
+
+    /// <summary>Looks for a newer GitHub release in the background and shows the bar when there is one.</summary>
+    void CheckForUpdate()
+    {
+        Task.Run(async () =>
+        {
+            var upd = await UpdateCheck.Latest(TimeSpan.FromSeconds(8));
+            if (upd == null) return;
+            Sync(() =>
+            {
+                UpdateText.Text = $"A newer version is available: {upd.Latest} (you have {Util.Version}). ";
+                UpdateLink.NavigateUri = new Uri(upd.Url);
+                UpdateBar.Visibility = Visibility.Visible;
+            });
+        });
     }
 
     void PopulateInterfaces()

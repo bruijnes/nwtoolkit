@@ -91,8 +91,8 @@ sealed class ChartControl : Control
         Bg: Color.FromArgb(0x3c, 0x3c, 0x3c),     // a shade lighter than the window, so the plot stands out
         Border: Color.FromArgb(0x6a, 0x6e, 0x72),
         Grid: Color.FromArgb(0x50, 0x54, 0x58),
-        Line: Color.FromArgb(0xf4, 0xf4, 0xf4),   // white line for contrast
-        Band: Color.FromArgb(0x8c, 0x90, 0x94),
+        Line: Color.FromArgb(0x6f, 0xc7, 0xcb),   // mint green, reads well on the grey
+        Band: Color.FromArgb(0x4a, 0x78, 0x7a),
         Text: Color.FromArgb(0xd0, 0xd4, 0xd8));
 
     public ChartControl()

@@ -211,7 +211,10 @@ sealed class MainForm : Form
 
     static TabPage Page(string title, params (Control Ctl, SizeType Type, float Size)[] rows)
     {
-        var page = new TabPage(title) { Font = uiFont, Padding = new Padding(10), UseVisualStyleBackColor = true };
+        // UseVisualStyleBackColor would paint the page with the Windows "tab body" theme
+        // element, which carries a light frame that shows up as a thick white border in
+        // dark mode. A plain fill in the window colour has no such frame.
+        var page = new TabPage(title) { Font = uiFont, Padding = new Padding(10), UseVisualStyleBackColor = false, BackColor = SystemColors.Control };
         page.Controls.Add(Stack(rows));
         return page;
     }
@@ -395,7 +398,7 @@ sealed class MainForm : Form
     {
         pHost = Edit("1.1.1.1", 190);
         pInt = Edit("1", 60);
-        pResolve = Check("resolve names (DNS)", false);
+        pResolve = Check("resolve names (DNS)", true);
         var settings = SettingsGroup(Row(Lbl("Host / IP:"), pHost, Lbl("Interval (s):"), pInt, pResolve,
             Btn("Start", 90, StartPing), Btn("Stop", 90, () => pJob.Halt())));
 

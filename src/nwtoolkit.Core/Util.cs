@@ -24,15 +24,14 @@ public static class Util
     }
 
     // ANSI colours
-    public const string CReset = "[0m";
-    public const string CRed = "[31m";
-    public const string CGreen = "[32m";
-    public const string CYellow = "[33m";
-    public const string CBlue = "[34m";
-    public const string CCyan = "[36m";
-    public const string CGrey = "[90m";
-    public const string CBold = "[1m";
-    public const string ClrScr = "[2J[H";
+    public const string CReset = "\u001b[0m";
+    public const string CRed = "\u001b[31m";
+    public const string CGreen = "\u001b[32m";
+    public const string CYellow = "\u001b[33m";
+    public const string CCyan = "\u001b[36m";
+    public const string CGrey = "\u001b[90m";
+    public const string CBold = "\u001b[1m";
+    public const string ClrScr = "\u001b[2J\u001b[H";
 
     public static bool UseColor = true;
 

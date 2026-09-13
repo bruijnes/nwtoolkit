@@ -183,9 +183,9 @@ sealed class MainForm : Form
         return g;
     }
 
-    static TextBox LogBox(bool wrap = true)
+    static TextBox LogBox()
     {
-        var t = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = wrap ? ScrollBars.Vertical : ScrollBars.Both, WordWrap = wrap, Font = monoFont, Dock = DockStyle.Fill, BackColor = SystemColors.Control };
+        var t = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Font = monoFont, Dock = DockStyle.Fill, BackColor = SystemColors.Control };
         ClassicScrollbars(t);
         return t;
     }

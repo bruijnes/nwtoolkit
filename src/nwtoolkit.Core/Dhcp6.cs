@@ -9,7 +9,7 @@ namespace Nwtoolkit;
 /// <summary>DHCPv6 INFORMATION-REQUEST probe. Not verified against a live DHCPv6 server.</summary>
 public static class Dhcp6
 {
-    public const byte Solicit = 1, Advertise = 2, Reply = 7, InfoReq = 11;
+    public const byte Advertise = 2, Reply = 7, InfoReq = 11;
     public const string MulticastV = "ff02::1:2"; // All_DHCP_Relay_Agents_and_Servers
     public const int ServerPort = 547;
 

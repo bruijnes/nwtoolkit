@@ -66,7 +66,7 @@ public sealed class DhcpResult
 
 public static class Dhcp
 {
-    public const byte Discover = 1, Offer = 2, Request = 3, Ack = 5, Inform = 8;
+    public const byte Discover = 1, Offer = 2, Ack = 5, Inform = 8;
     public const uint MagicCookie = 0x63825363;
     public static readonly byte[] FallbackMac = { 0x02, 0x00, 0x4e, 0x54, 0x00, 0x01 }; // locally administered
 

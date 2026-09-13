@@ -1,17 +1,9 @@
-# Build-artefacten
-*.exe
-*.dll
-/nwtoolkit
-nwtoolkit-crash.log
-
-# Go
-vendor/
-*.test
-*.out
-
-# .NET
+# .NET build output
 bin/
 obj/
 dist/
 *.user
 .vs/
+
+# written by the app when the window crashes
+nwtoolkit-crash.log

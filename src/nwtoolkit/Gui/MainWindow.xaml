@@ -1,0 +1,246 @@
+<Window x:Class="Nwtoolkit.Gui.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:gui="clr-namespace:Nwtoolkit.Gui"
+        Title="nwtoolkit" Width="1100" Height="760" MinWidth="980" MinHeight="520"
+        Icon="pack://application:,,,/nwtoolkit.ico"
+        FontFamily="Segoe UI" FontSize="13">
+  <Window.Resources>
+    <!-- read-only monospace output box -->
+    <Style x:Key="Out" TargetType="TextBox">
+      <Setter Property="FontFamily" Value="Consolas"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="IsReadOnly" Value="True"/>
+      <Setter Property="IsReadOnlyCaretVisible" Value="False"/>
+      <Setter Property="AcceptsReturn" Value="True"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+      <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+      <Setter Property="VerticalContentAlignment" Value="Top"/>
+    </Style>
+    <Style x:Key="Lbl" TargetType="TextBlock">
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Margin" Value="0,0,6,0"/>
+    </Style>
+    <Style x:Key="In" TargetType="TextBox">
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Margin" Value="0,0,12,0"/>
+    </Style>
+    <Style x:Key="Btn" TargetType="Button">
+      <Setter Property="MinWidth" Value="90"/>
+      <Setter Property="Margin" Value="0,0,8,0"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style x:Key="Chk" TargetType="CheckBox">
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Margin" Value="0,0,12,0"/>
+    </Style>
+    <Style x:Key="Card" TargetType="GroupBox">
+      <Setter Property="Margin" Value="0,0,0,8"/>
+      <Setter Property="Padding" Value="8"/>
+    </Style>
+    <Style x:Key="Stats" TargetType="TextBlock">
+      <Setter Property="Margin" Value="4,0,0,6"/>
+    </Style>
+  </Window.Resources>
+
+  <DockPanel>
+    <StatusBar DockPanel.Dock="Bottom">
+      <TextBlock x:Name="Status" Text="Ready."/>
+    </StatusBar>
+
+    <Grid>
+      <TabControl x:Name="Tabs" Margin="8,8,8,4">
+
+        <TabItem Header="Ping">
+          <Grid Margin="6">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="60*"/>
+              <RowDefinition Height="40*"/>
+            </Grid.RowDefinitions>
+            <GroupBox Grid.Row="0" Header="Settings" Style="{StaticResource Card}">
+              <WrapPanel>
+                <TextBlock Text="Host / IP:" Style="{StaticResource Lbl}"/>
+                <TextBox x:Name="PHost" Width="190" Text="1.1.1.1" Style="{StaticResource In}"/>
+                <TextBlock Text="Interval (s):" Style="{StaticResource Lbl}"/>
+                <TextBox x:Name="PInt" Width="60" Text="1" Style="{StaticResource In}"/>
+                <CheckBox x:Name="PResolve" Content="resolve names (DNS)" IsChecked="True" Style="{StaticResource Chk}"/>
+                <Button Content="Start" Click="StartPing" Style="{StaticResource Btn}"/>
+                <Button Content="Stop" Click="StopPing" Style="{StaticResource Btn}"/>
+              </WrapPanel>
+            </GroupBox>
+            <GroupBox Grid.Row="1" Header="Response time (ms)" Style="{StaticResource Card}">
+              <DockPanel>
+                <TextBlock x:Name="PStats" DockPanel.Dock="Top" Text="Ready." Style="{StaticResource Stats}"/>
+                <gui:ChartControl x:Name="PChart" MinHeight="100"/>
+              </DockPanel>
+            </GroupBox>
+            <GroupBox Grid.Row="2" Header="Log" Style="{StaticResource Card}">
+              <TextBox x:Name="PLog" Style="{StaticResource Out}"/>
+            </GroupBox>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="Traceroute">
+          <Grid Margin="6">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <GroupBox Grid.Row="0" Header="Settings" Style="{StaticResource Card}">
+              <WrapPanel>
+                <TextBlock Text="Host / IP:" Style="{StaticResource Lbl}"/>
+                <TextBox x:Name="TrHost" Width="220" Text="example.com" Style="{StaticResource In}"/>
+                <CheckBox x:Name="TrMon" Content="monitor continuously" Style="{StaticResource Chk}"/>
+                <CheckBox x:Name="TrResolve" Content="resolve names (DNS)" IsChecked="True" Style="{StaticResource Chk}"/>
+                <Button Content="Start" Click="StartTrace" Style="{StaticResource Btn}"/>
+                <Button Content="Stop" Click="StopTrace" Style="{StaticResource Btn}"/>
+              </WrapPanel>
+            </GroupBox>
+            <GroupBox Grid.Row="1" Header="Route (times in ms)" Style="{StaticResource Card}">
+              <TextBox x:Name="TrOut" Style="{StaticResource Out}"/>
+            </GroupBox>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="DNS query">
+          <Grid Margin="6">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <GroupBox Grid.Row="0" Header="Settings" Style="{StaticResource Card}">
+              <WrapPanel>
+                <TextBlock Text="Name:" Style="{StaticResource Lbl}"/>
+                <TextBox x:Name="DName" Width="190" Text="example.com" Style="{StaticResource In}"/>
+                <TextBlock Text="Server (empty = system):" Style="{StaticResource Lbl}"/>
+                <TextBox x:Name="DServer" Width="150" Style="{StaticResource In}"/>
+                <TextBlock Text="Type:" Style="{StaticResource Lbl}"/>
+                <ComboBox x:Name="DType" Width="90" SelectedIndex="0" Margin="0,0,12,0" VerticalAlignment="Center">
+                  <ComboBoxItem Content="A"/><ComboBoxItem Content="AAAA"/><ComboBoxItem Content="MX"/><ComboBoxItem Content="TXT"/>
+                  <ComboBoxItem Content="NS"/><ComboBoxItem Content="CNAME"/><ComboBoxItem Content="SOA"/><ComboBoxItem Content="PTR"/>
+                </ComboBox>
+                <Button Content="Query" Click="RunDnsQuery" Style="{StaticResource Btn}"/>
+              </WrapPanel>
+            </GroupBox>
+            <GroupBox Grid.Row="1" Header="Answer" Style="{StaticResource Card}">
+              <TextBox x:Name="DOut" Style="{StaticResource Out}"/>
+            </GroupBox>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="DNS speed test">
+          <Grid Margin="6">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <GroupBox Grid.Row="0" Header="Settings" Style="{StaticResource Card}">
+              <WrapPanel>
+                <TextBlock Text="Name:" Style="{StaticResource Lbl}"/>
+                <TextBox x:Name="DsName" Width="190" Text="example.com" Style="{StaticResource In}"/>
+                <TextBlock Text="Server (empty = system):" Style="{StaticResource Lbl}"/>
+                <TextBox x:Name="DsServer" Width="150" Style="{StaticResource In}"/>
+                <TextBlock Text="Interval (s):" Style="{StaticResource Lbl}"/>
+                <TextBox x:Name="DsInt" Width="60" Text="5" Style="{StaticResource In}"/>
+                <Button Content="Start" Click="StartDnsSpeed" Style="{StaticResource Btn}"/>
+                <Button Content="Stop" Click="StopDnsSpeed" Style="{StaticResource Btn}"/>
+              </WrapPanel>
+            </GroupBox>
+            <GroupBox Grid.Row="1" Header="Response time (ms)" Style="{StaticResource Card}">
+              <DockPanel>
+                <TextBlock x:Name="DsStats" DockPanel.Dock="Top" Text="Ready." Style="{StaticResource Stats}"/>
+                <gui:ChartControl x:Name="DsChart" MinHeight="100"/>
+              </DockPanel>
+            </GroupBox>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="DHCP speed test">
+          <Grid Margin="6">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="60*"/>
+              <RowDefinition Height="40*"/>
+            </Grid.RowDefinitions>
+            <GroupBox Grid.Row="0" Header="Settings" Style="{StaticResource Card}">
+              <WrapPanel>
+                <TextBlock Text="Interface:" Style="{StaticResource Lbl}"/>
+                <ComboBox x:Name="DhIf" Width="240" IsEditable="True" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                <TextBlock Text="Interval (s):" Style="{StaticResource Lbl}"/>
+                <TextBox x:Name="DhInt" Width="60" Text="1" Style="{StaticResource In}"/>
+                <Button Content="Start" Click="StartDhcp" Style="{StaticResource Btn}"/>
+                <Button Content="Stop" Click="StopDhcp" Style="{StaticResource Btn}"/>
+              </WrapPanel>
+            </GroupBox>
+            <GroupBox Grid.Row="1" Header="Response time (ms)" Style="{StaticResource Card}">
+              <DockPanel>
+                <TextBlock x:Name="DhStats" DockPanel.Dock="Top" Text="Ready." Style="{StaticResource Stats}"/>
+                <gui:ChartControl x:Name="DhChart" MinHeight="100"/>
+              </DockPanel>
+            </GroupBox>
+            <GroupBox Grid.Row="2" Header="Log" Style="{StaticResource Card}">
+              <TextBox x:Name="DhOut" Style="{StaticResource Out}"/>
+            </GroupBox>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="LLDP neighbour">
+          <Grid Margin="6">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <GroupBox Grid.Row="0" Header="Settings" Style="{StaticResource Card}">
+              <WrapPanel>
+                <TextBlock Text="Interface:" Style="{StaticResource Lbl}"/>
+                <ComboBox x:Name="LlIf" Width="260" IsEditable="True" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                <TextBlock Text="Wait (s):" Style="{StaticResource Lbl}"/>
+                <TextBox x:Name="LlWait" Width="60" Text="35" Style="{StaticResource In}"/>
+                <Button Content="Find neighbour" Click="FindNeighbour" Style="{StaticResource Btn}" MinWidth="120"/>
+              </WrapPanel>
+            </GroupBox>
+            <GroupBox Grid.Row="1" Header="Connected switch/port" Style="{StaticResource Card}">
+              <TextBox x:Name="LlOut" Style="{StaticResource Out}"/>
+            </GroupBox>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="About">
+          <Grid Margin="14">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <TextBlock x:Name="AboutTitle" Grid.Row="0" FontSize="22" FontWeight="Bold" Margin="0,0,0,10"/>
+            <Border Grid.Row="1" x:Name="AboutBox" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,0,0,12">
+              <TextBlock TextWrapping="Wrap">
+                <Run Text="Network diagnostic tool for IPv4, IPv6 and LLDP.  Made by vibe coding using Anthropic's Claude*."/>
+                <LineBreak/><LineBreak/>
+                <Run Text="Software is licensed under the MIT license. If you have any suggestions, bug fixes or want to get in touch, visit"/>
+                <Hyperlink NavigateUri="https://github.com/bruijnes/" RequestNavigate="OpenLink">https://github.com/bruijnes/</Hyperlink>
+                <LineBreak/><LineBreak/>
+                <Run Text="* Claude is a trademark of Anthropic, PBC."/>
+              </TextBlock>
+            </Border>
+            <TextBlock Grid.Row="2" Text="MIT license" FontWeight="Bold" Margin="0,0,0,6"/>
+            <TextBox Grid.Row="3" x:Name="AboutLic" Style="{StaticResource Out}"/>
+          </Grid>
+        </TabItem>
+
+      </TabControl>
+
+      <!-- IP version picker, on the tab strip at the right -->
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,12,20,0">
+        <TextBlock Text="IP version:" Style="{StaticResource Lbl}" Margin="0,0,8,0"/>
+        <ComboBox x:Name="IpVer" Width="100" SelectedIndex="0">
+          <ComboBoxItem Content="IPv4"/>
+          <ComboBoxItem Content="IPv6"/>
+        </ComboBox>
+      </StackPanel>
+    </Grid>
+  </DockPanel>
+</Window>

@@ -1,26 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    The Windows executable: the command line from nwtoolkit.Core plus the native
-    WinForms window. It is a console-subsystem exe on purpose: started from a terminal
-    it behaves like any CLI tool; double-clicked it detaches from its console and
-    shows the window, the same way the original did.
+    The Windows executable: the command line from nwtoolkit.Core plus the native WPF
+    window (Fluent theme, light and dark follow the Windows app-mode setting). It is a
+    console-subsystem exe on purpose: started from a terminal it behaves like any CLI
+    tool; double-clicked it detaches from its console and shows the window.
 
     Publish (self-contained, one file, no .NET install needed on the target):
-      dotnet publish src/nwtoolkit -c Release -r win-x64 -o dist
+      dotnet publish src/nwtoolkit -c Release -o dist
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
-    <UseWindowsForms>true</UseWindowsForms>
+    <UseWPF>true</UseWPF>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
     <RootNamespace>Nwtoolkit</RootNamespace>
     <AssemblyName>nwtoolkit</AssemblyName>
     <ApplicationIcon>nwtoolkit.ico</ApplicationIcon>
     <ApplicationManifest>nwtoolkit.manifest</ApplicationManifest>
-    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
-    <!-- WFO5001: the dark-mode API (SetColorMode / IsDarkModeEnabled) is still marked experimental -->
-    <NoWarn>$(NoWarn);WFO5001</NoWarn>
     <StartupObject>Nwtoolkit.Program</StartupObject>
+    <!-- WPF0001: the ThemeMode API (Fluent theme, light/dark) is still marked experimental -->
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
 
     <!-- lets Linux/macOS build and publish the Windows target (CI runs on ubuntu) -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
@@ -31,18 +31,18 @@
     <PublishSingleFile>true</PublishSingleFile>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <UseAppHost>true</UseAppHost>
 
     <!--
-      Trimming halves the exe (about 48 MB to 24 MB) by dropping the parts of the
-      runtime this app never touches. WinForms itself is not trimmable and stays
-      intact; only the framework libraries are trimmed. The SDK refuses trimming for
-      WinForms apps by default (NETSDK1175), hence the suppression. If a control ever
-      misbehaves after publishing, this block is the first thing to switch off.
+      Trimming halves the exe by dropping the parts of the runtime this app never
+      touches. WPF itself is not trimmable and stays intact; only the framework
+      libraries are trimmed. The SDK refuses trimming for WPF apps by default, hence
+      the suppression. If a control ever misbehaves after publishing, this block is
+      the first thing to switch off.
     -->
     <PublishTrimmed>true</PublishTrimmed>
     <TrimMode>partial</TrimMode>
-    <_SuppressWinFormsTrimError>true</_SuppressWinFormsTrimError>
-    <UseAppHost>true</UseAppHost>
+    <_SuppressWpfTrimError>true</_SuppressWpfTrimError>
   </PropertyGroup>
 
   <ItemGroup>
@@ -50,8 +50,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- the icon is also embedded as a resource so the window can load it at runtime -->
-    <EmbeddedResource Include="nwtoolkit.ico" LogicalName="nwtoolkit.ico" />
+    <!-- the icon is also a WPF resource so the window can show it -->
+    <Resource Include="nwtoolkit.ico" />
   </ItemGroup>
 
 </Project>

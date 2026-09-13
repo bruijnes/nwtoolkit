@@ -1,10 +1,11 @@
-using System.Drawing.Drawing2D;
 using System.Globalization;
+using System.Windows;
+using System.Windows.Media;
 
 namespace Nwtoolkit.Gui;
 
 /// <summary>Thread-safe sample store behind a live chart.</summary>
-sealed class ChartData
+public sealed class ChartData
 {
     readonly object mu = new();
     readonly List<double> vals = new();
@@ -68,61 +69,43 @@ sealed class ChartData
 }
 
 /// <summary>
-/// Line chart of response times. With more samples than pixels each column becomes a
-/// min/max band with an average line, so a long run still reads well.
+/// Line chart of response times, drawn directly with a DrawingContext. With more
+/// samples than pixels each column becomes a min/max band with an average line, so a
+/// long run still reads well. Colours come from the active Fluent theme, so the chart
+/// follows light and dark mode; the line itself is teal in light mode and mint in dark.
 /// </summary>
-sealed class ChartControl : Control
+public sealed class ChartControl : FrameworkElement
 {
-    public ChartData? Data;
-    static readonly Font axisFont = new("Segoe UI", 8f);
+    public ChartData? Data { get; set; }
 
-    /// <summary>Chart colours for the light and the dark app mode.</summary>
-    sealed record Palette(Color Bg, Color Border, Color Grid, Color Line, Color Band, Color Text);
+    static readonly Typeface axisFace = new("Segoe UI");
+    const double axisFontSize = 11; // ~8pt
 
-    static readonly Palette light = new(
-        Bg: Color.FromArgb(0xf0, 0xf0, 0xf0), // same grey as the log box
-        Border: Color.FromArgb(0xc8, 0xcc, 0xd0),
-        Grid: Color.FromArgb(0xe6, 0xe8, 0xea),
-        Line: Color.FromArgb(0x19, 0x4b, 0x4d),
-        Band: Color.FromArgb(0xbf, 0xd6, 0xd7),
-        Text: Color.FromArgb(0x6a, 0x70, 0x78));
+    /// <summary>The plot area brush for the current theme; the output boxes use it too.</summary>
+    public static Brush PlotBackground(FrameworkElement fe) => Theme.IsDark(fe) ? new SolidColorBrush(Color.FromRgb(0x3c, 0x3c, 0x3c)) : new SolidColorBrush(Color.FromRgb(0xf0, 0xf0, 0xf0));
 
-    static readonly Palette dark = new(
-        Bg: Color.FromArgb(0x3c, 0x3c, 0x3c),     // a shade lighter than the window, so the plot stands out
-        Border: Color.FromArgb(0x6a, 0x6e, 0x72),
-        Grid: Color.FromArgb(0x50, 0x54, 0x58),
-        Line: Color.FromArgb(0x6f, 0xc7, 0xcb),   // mint green, reads well on the grey
-        Band: Color.FromArgb(0x4a, 0x78, 0x7a),
-        Text: Color.FromArgb(0xd0, 0xd4, 0xd8));
-
-    /// <summary>The plot area colour for the current app mode; the output boxes use it too.</summary>
-    public static Color PlotBackground => (Application.IsDarkModeEnabled ? dark : light).Bg;
-    public static Color PlotForeground => Application.IsDarkModeEnabled ? Color.FromArgb(0xe8, 0xe8, 0xe8) : SystemColors.ControlText;
-
-    public ChartControl()
+    protected override void OnRender(DrawingContext dc)
     {
-        DoubleBuffered = true;
-        ResizeRedraw = true;
-        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
-    }
+        var w = ActualWidth;
+        var h = ActualHeight;
+        if (w < 1 || h < 1) return;
+        var dark = Theme.IsDark(this);
+        var bg = PlotBackground(this);
+        var border = Pen(dark ? Color.FromRgb(0x6a, 0x6e, 0x72) : Color.FromRgb(0xc8, 0xcc, 0xd0));
+        var grid = Pen(dark ? Color.FromRgb(0x50, 0x54, 0x58) : Color.FromRgb(0xe6, 0xe8, 0xea));
+        var line = Pen(dark ? Color.FromRgb(0x6f, 0xc7, 0xcb) : Color.FromRgb(0x19, 0x4b, 0x4d), 2);
+        var band = Pen(dark ? Color.FromRgb(0x4a, 0x78, 0x7a) : Color.FromRgb(0xbf, 0xd6, 0xd7));
+        var text = new SolidColorBrush(dark ? Color.FromRgb(0xd0, 0xd4, 0xd8) : Color.FromRgb(0x6a, 0x70, 0x78));
 
-    protected override void OnPaint(PaintEventArgs e)
-    {
-        var g = e.Graphics;
-        var b = ClientRectangle;
-        var p = Application.IsDarkModeEnabled ? dark : light;
-        g.Clear(p.Bg);
-        using var border = new Pen(p.Border);
-        g.DrawRectangle(border, b.X, b.Y, b.Width - 1, b.Height - 1);
+        dc.DrawRectangle(bg, border, new Rect(0.5, 0.5, w - 1, h - 1));
         if (Data == null) return;
         var (vals, times, _, _) = Data.Snapshot();
 
-        var scale = DeviceDpi / 96f;
-        int padL = (int)(60 * scale), padT = (int)(14 * scale), padB = (int)(36 * scale), padR = (int)(14 * scale);
-        var x0 = b.X + padL;
-        var y0 = b.Y + padT;
-        var plotW = b.Width - padL - padR;
-        var plotH = b.Height - padT - padB;
+        double padL = 60, padT = 14, padB = 36, padR = 14;
+        var x0 = padL;
+        var y0 = padT;
+        var plotW = w - padL - padR;
+        var plotH = h - padT - padB;
         if (plotW < 40 || plotH < 30) return;
 
         double mn = 0, mx = 1;
@@ -141,84 +124,103 @@ sealed class ChartControl : Control
         mx += rng * 0.1;
         if (mn < 0) mn = 0;
 
-        int Gx(int i, int n) => n < 2 ? x0 : x0 + (int)((long)plotW * i / (n - 1));
-        int Gy(double v) => y0 + plotH - (int)(plotH * ((v - mn) / (mx - mn)));
+        double Gx(int i, int n) => n < 2 ? x0 : x0 + plotW * i / (n - 1);
+        double Gy(double v) => Math.Round(y0 + plotH - plotH * ((v - mn) / (mx - mn))) + 0.5;
+        var dip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
 
-        using var grid = new Pen(p.Grid);
-        using var textBrush = new SolidBrush(p.Text);
-        using var fmtRight = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center, FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.NoClip };
         for (var k = 0; k <= 4; k++)
         {
             var vy = mn + (mx - mn) * k / 4;
             var yy = Gy(vy);
-            g.DrawLine(grid, x0, yy, x0 + plotW, yy);
-            g.DrawString(vy.ToString("F1", CultureInfo.InvariantCulture), axisFont, textBrush,
-                new RectangleF(b.X + 6 * scale, yy - 9 * scale, padL - 14 * scale, 18 * scale), fmtRight);
+            dc.DrawLine(grid, new Point(x0, yy), new Point(x0 + plotW, yy));
+            var ft = new FormattedText(vy.ToString("F1", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight, axisFace, axisFontSize, text, dip);
+            dc.DrawText(ft, new Point(x0 - 8 - ft.Width, yy - ft.Height / 2));
         }
 
         var n = vals.Length;
-        using var linePen = new Pen(p.Line, 2f);
-        if (n >= 2 && n <= plotW)
+        var cols = (int)plotW;
+        if (n >= 2 && n <= cols)
         {
             // enough width: a plain line through every point
-            var pts = new Point[n];
-            for (var i = 0; i < n; i++) pts[i] = new Point(Gx(i, n), Gy(vals[i]));
-            g.DrawLines(linePen, pts);
+            var geo = new StreamGeometry();
+            using (var g = geo.Open())
+            {
+                g.BeginFigure(new Point(Gx(0, n), Gy(vals[0])), false, false);
+                for (var i = 1; i < n; i++) g.LineTo(new Point(Gx(i, n), Gy(vals[i])), true, true);
+            }
+            geo.Freeze();
+            dc.DrawGeometry(null, line, geo);
         }
-        else if (n > plotW)
+        else if (n > cols)
         {
             // more samples than pixels: compress per column into a min/max band plus an average line
-            using var bandPen = new Pen(p.Band);
-            var avgPts = new List<Point>(plotW);
-            for (var cix = 0; cix < plotW; cix++)
+            var geo = new StreamGeometry();
+            using (var g = geo.Open())
             {
-                var lo = (int)((long)cix * n / plotW);
-                var hi = (int)((long)(cix + 1) * n / plotW);
-                if (hi <= lo) hi = lo + 1;
-                if (hi > n) hi = n;
-                double mnv = vals[lo], mxv = vals[lo], sum = 0;
-                for (var j = lo; j < hi; j++)
+                var first = true;
+                for (var cix = 0; cix < cols; cix++)
                 {
-                    var v = vals[j];
-                    if (v < mnv) mnv = v;
-                    if (v > mxv) mxv = v;
-                    sum += v;
+                    var lo = (int)((long)cix * n / cols);
+                    var hi = (int)((long)(cix + 1) * n / cols);
+                    if (hi <= lo) hi = lo + 1;
+                    if (hi > n) hi = n;
+                    double mnv = vals[lo], mxv = vals[lo], sum = 0;
+                    for (var j = lo; j < hi; j++)
+                    {
+                        var v = vals[j];
+                        if (v < mnv) mnv = v;
+                        if (v > mxv) mxv = v;
+                        sum += v;
+                    }
+                    var x = x0 + cix + 0.5;
+                    dc.DrawLine(band, new Point(x, Gy(mxv)), new Point(x, Gy(mnv)));
+                    var p = new Point(x, Gy(sum / (hi - lo)));
+                    if (first) g.BeginFigure(p, false, false);
+                    else g.LineTo(p, true, true);
+                    first = false;
                 }
-                var x = x0 + cix;
-                g.DrawLine(bandPen, x, Gy(mxv), x, Gy(mnv));
-                avgPts.Add(new Point(x, Gy(sum / (hi - lo))));
             }
-            if (avgPts.Count >= 2) g.DrawLines(linePen, avgPts.ToArray());
+            geo.Freeze();
+            dc.DrawGeometry(null, line, geo);
         }
 
         // x axis: time labels along the bottom, the clock time of each sample
         if (n >= 2)
         {
-            var yLab = y0 + plotH + 5 * scale;
-            using var axisTick = new Pen(p.Border);
-            var ticks = plotW < 360 * scale ? 3 : 5;
+            var yLab = y0 + plotH + 5;
+            var ticks = plotW < 360 ? 3 : 5;
             for (var t = 0; t <= ticks; t++)
             {
                 var i = (n - 1) * t / ticks;
-                var x = Gx(i, n);
-                g.DrawLine(axisTick, x, y0 + plotH, x, y0 + plotH + 3);
-                var lbl = times[i].ToString("HH:mm:ss", CultureInfo.InvariantCulture);
-                var w = 60 * scale;
-                float bx = x - w / 2;
-                var align = StringAlignment.Center;
-                if (t == 0)
-                {
-                    bx = x;
-                    align = StringAlignment.Near;
-                }
-                else if (t == ticks)
-                {
-                    bx = x - w;
-                    align = StringAlignment.Far;
-                }
-                using var fmt = new StringFormat { Alignment = align, LineAlignment = StringAlignment.Near, FormatFlags = StringFormatFlags.NoWrap | StringFormatFlags.NoClip };
-                g.DrawString(lbl, axisFont, textBrush, new RectangleF(bx, yLab, w, 16 * scale), fmt);
+                var x = Math.Round(Gx(i, n)) + 0.5;
+                dc.DrawLine(border, new Point(x, y0 + plotH), new Point(x, y0 + plotH + 3));
+                var ft = new FormattedText(times[i].ToString("HH:mm:ss", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture,
+                    FlowDirection.LeftToRight, axisFace, axisFontSize, text, dip);
+                var bx = t == 0 ? x : t == ticks ? x - ft.Width : x - ft.Width / 2;
+                dc.DrawText(ft, new Point(bx, yLab));
             }
         }
+    }
+
+    static Pen Pen(Color c, double thickness = 1)
+    {
+        var p = new Pen(new SolidColorBrush(c), thickness) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
+        p.Freeze();
+        return p;
+    }
+}
+
+/// <summary>Tells light from dark by looking at the theme's text colour.</summary>
+public static class Theme
+{
+    public static bool IsDark(FrameworkElement fe)
+    {
+        var brush = fe.TryFindResource("TextFillColorPrimaryBrush") as SolidColorBrush
+                    ?? Application.Current?.TryFindResource("TextFillColorPrimaryBrush") as SolidColorBrush;
+        if (brush == null) return false;
+        var c = brush.Color;
+        var luminance = (0.299 * c.R + 0.587 * c.G + 0.114 * c.B) / 255.0;
+        return luminance > 0.5; // light text means a dark background
     }
 }

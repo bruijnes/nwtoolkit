@@ -79,7 +79,7 @@ Requires the .NET 10 SDK. The solution has three projects:
 
 ```
 src/nwtoolkit.Core    all network logic, the command line and the text menu (cross-platform)
-src/nwtoolkit         the Windows executable: command line plus the native WinForms window
+src/nwtoolkit         the Windows executable: command line plus the native WPF window (Fluent theme)
 tests/nwtoolkit.Tests unit tests (xunit)
 ```
 
@@ -91,7 +91,7 @@ dotnet test tests/nwtoolkit.Tests
 dotnet publish src/nwtoolkit -c Release -o dist
 ```
 
-The result is one `nwtoolkit.exe` of roughly 25 MB: the .NET runtime and WinForms
+The result is one `nwtoolkit.exe` of roughly 37 MB: the .NET runtime and WPF
 are bundled into it, which is what makes it run on a clean machine, and the
 unused parts of the runtime are trimmed away.
 

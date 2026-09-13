@@ -409,7 +409,8 @@ sealed class MainForm : Form
         pLog = LogBox();
         var log = Group("Log", pLog);
 
-        return Page("Ping", (settings, SizeType.AutoSize, 0), (chart, SizeType.Percent, 100), (log, SizeType.Absolute, 140));
+        // below the settings: 60% chart, 40% log
+        return Page("Ping", (settings, SizeType.AutoSize, 0), (chart, SizeType.Percent, 60), (log, SizeType.Percent, 40));
     }
 
     void StartPing()
@@ -579,7 +580,7 @@ sealed class MainForm : Form
         dhStats = new Label { Text = "Ready.", AutoSize = true };
         dhChart = new ChartControl { Data = dhData, MinimumSize = new Size(0, 130) };
         dhOut = LogBox();
-        var chart = Group("Response time (ms)", Stack((dhStats, SizeType.AutoSize, 0), (dhChart, SizeType.Percent, 100), (dhOut, SizeType.Absolute, 90)));
+        var chart = Group("Response time (ms)", Stack((dhStats, SizeType.AutoSize, 0), (dhChart, SizeType.Percent, 60), (dhOut, SizeType.Percent, 40)));
         return Page("DHCP speed test", (settings, SizeType.AutoSize, 0), (chart, SizeType.Percent, 100));
     }
 

@@ -226,6 +226,14 @@ sealed class MainForm : Form
 
     void SetStatus(string s) => status.Text = s;
 
+    /// <summary>Opens a web address in the default browser.</summary>
+    static void OpenUrl(string url)
+    {
+        if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return;
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch { }
+    }
+
     bool UseV6 => ipVer.SelectedIndex == 1;
 
     static double Atof(string s, double def) =>
@@ -691,19 +699,25 @@ sealed class MainForm : Form
     TabPage BuildAboutPage()
     {
         var title = new Label { Text = "nwtoolkit " + Util.Version, Font = new Font("Segoe UI", 15f, FontStyle.Bold), AutoSize = true, Margin = new Padding(0, 0, 0, 6) };
-        var about = new TextBox
+        // A RichTextBox rather than a TextBox: it recognises the URL and makes it clickable.
+        // Its height follows the text, so the whole paragraph is always visible.
+        var about = new RichTextBox
         {
-            Multiline = true, ReadOnly = true, Font = uiFont, BackColor = SystemColors.Control, BorderStyle = BorderStyle.None,
+            ReadOnly = true, DetectUrls = true, TabStop = false, Font = uiFont, BorderStyle = BorderStyle.FixedSingle,
+            BackColor = ChartControl.PlotBackground, ForeColor = ChartControl.PlotForeground,
+            ScrollBars = RichTextBoxScrollBars.None, Margin = new Padding(0, 0, 0, 4),
             Text = "Network diagnostic tool for IPv4, IPv6 and LLDP.  Made by vibe coding using Anthropic's Claude*.\r\n\r\n" +
                    "Software is licensed under the MIT license. If you have any suggestions, bug fixes or want to\r\n" +
-                   "get in touch visit: https://github.com/bruijnes/.\r\n\r\n" +
+                   "get in touch, visit https://github.com/bruijnes/\r\n\r\n" +
                    "* Claude is a trademark of Anthropic, PBC.",
         };
+        about.ContentsResized += (_, e) => about.Height = e.NewRectangle.Height + (int)(12 * DeviceDpi / 96f);
+        about.LinkClicked += (_, e) => OpenUrl(e.LinkText ?? "");
         var licTitle = new Label { Text = "MIT license", Font = new Font("Segoe UI", 9f, FontStyle.Bold), AutoSize = true, Margin = new Padding(0, 8, 0, 4) };
         var lic = LogBox();
         lic.Text = MitLicense;
         lic.Select(0, 0);
-        var page = Page("About", (title, SizeType.AutoSize, 0), (about, SizeType.Absolute, 128), (licTitle, SizeType.AutoSize, 0), (lic, SizeType.Percent, 100));
+        var page = Page("About", (title, SizeType.AutoSize, 0), (about, SizeType.AutoSize, 0), (licTitle, SizeType.AutoSize, 0), (lic, SizeType.Percent, 100));
         page.Padding = new Padding(18);
         return page;
     }

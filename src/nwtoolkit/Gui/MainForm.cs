@@ -40,11 +40,12 @@ sealed class MainForm : Form
     ComboBox ipVer = null!;
 
     TextBox pHost = null!, pInt = null!, pLog = null!;
+    CheckBox pResolve = null!;
     Label pStats = null!;
     ChartControl pChart = null!;
 
     TextBox trHost = null!, trOut = null!;
-    CheckBox trMon = null!;
+    CheckBox trMon = null!, trResolve = null!;
 
     TextBox dName = null!, dServer = null!, dOut = null!;
     ComboBox dType = null!;
@@ -145,6 +146,8 @@ sealed class MainForm : Form
 
     static Label Lbl(string text) => new() { Text = text, AutoSize = true, Margin = new Padding(3, 7, 3, 0) };
 
+    static CheckBox Check(string text, bool on) => new() { Text = text, Checked = on, AutoSize = true, Margin = new Padding(3, 6, 6, 0) };
+
     static TextBox Edit(string text, int width) => new() { Text = text, Width = width, Margin = new Padding(3, 4, 3, 3) };
 
     static Button Btn(string text, int minW, Action onClick)
@@ -187,7 +190,7 @@ sealed class MainForm : Form
 
     static TextBox LogBox()
     {
-        var t = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Font = monoFont, Dock = DockStyle.Fill, BackColor = SystemColors.Control };
+        var t = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Font = monoFont, Dock = DockStyle.Fill, BackColor = ChartControl.PlotBackground, ForeColor = ChartControl.PlotForeground };
         ClassicScrollbars(t);
         return t;
     }
@@ -302,8 +305,21 @@ sealed class MainForm : Form
         StartPosition = FormStartPosition.WindowsDefaultLocation;
         LoadIcon();
 
-        var tabs = new TabControl { Dock = DockStyle.Fill, Font = tabFont };
+        var tabs = new TabControl { Font = tabFont };
         tabs.TabPages.AddRange(new[] { BuildPingPage(), BuildTracePage(), BuildDnsPage(), BuildDnsSpeedPage(), BuildDhcpPage(), BuildLldpPage(), BuildAboutPage() });
+
+        // The native tab control draws a thick bright frame around the page, which looks
+        // wrong in dark mode. The control is made a little larger than its host panel so
+        // the left, right and bottom edges of that frame fall outside the visible area.
+        var tabHost = new Panel { Dock = DockStyle.Fill };
+        tabHost.Controls.Add(tabs);
+        void FitTabs()
+        {
+            var o = (int)(3 * DeviceDpi / 96f);
+            tabs.Bounds = new Rectangle(-o, 0, tabHost.Width + 2 * o, tabHost.Height + o);
+        }
+        tabHost.Resize += (_, _) => FitTabs();
+        FitTabs();
 
         // The IP version choice sits on the tab strip itself, at the right, so it does
         // not cost a row of its own: a small panel laid over the TabControl's header area.
@@ -319,7 +335,7 @@ sealed class MainForm : Form
         var strip = new StatusStrip { SizingGrip = true };
         strip.Items.Add(status);
 
-        Controls.Add(tabs);
+        Controls.Add(tabHost);
         Controls.Add(top);
         Controls.Add(strip);
         top.BringToFront();
@@ -328,7 +344,7 @@ sealed class MainForm : Form
         {
             var margin = (int)(12 * DeviceDpi / 96f);
             // The window must at least fit every tab header plus the picker, or they overlap.
-            var tabsRight = tabs.TabCount > 0 ? tabs.GetTabRect(tabs.TabCount - 1).Right : 0;
+            var tabsRight = tabs.TabCount > 0 ? tabs.GetTabRect(tabs.TabCount - 1).Right + tabs.Left : 0;
             var needClientW = tabsRight + top.Width + 3 * margin;
             var chrome = Width - ClientSize.Width;
             if (MinimumSize.Width < needClientW + chrome) MinimumSize = new Size(needClientW + chrome, MinimumSize.Height);
@@ -383,7 +399,8 @@ sealed class MainForm : Form
     {
         pHost = Edit("1.1.1.1", 190);
         pInt = Edit("1", 60);
-        var settings = SettingsGroup(Row(Lbl("Host / IP:"), pHost, Lbl("Interval (s):"), pInt,
+        pResolve = Check("resolve names (DNS)", false);
+        var settings = SettingsGroup(Row(Lbl("Host / IP:"), pHost, Lbl("Interval (s):"), pInt, pResolve,
             Btn("Start", 90, StartPing), Btn("Stop", 90, () => pJob.Halt())));
 
         pStats = new Label { Text = "Ready.", AutoSize = true };
@@ -407,20 +424,23 @@ sealed class MainForm : Form
         }
         var echo = new Echo();
         var payload = Encoding.ASCII.GetBytes("nwtoolkit");
+        var resolve = pResolve.Checked;
         StartSpeed(pJob, pData, pChart, pStats, pLog, "Ping", Dur(Atof(pInt.Text, 1)), () =>
         {
             var r = echo.Send(ip, 128, TimeSpan.FromSeconds(2), payload);
             if (r.Error != null) return (0, "", r.Error);
             if (r.Status != System.Net.NetworkInformation.IPStatus.Success) return (0, "", Echo.StatusText(r.Status));
-            return (r.Ms, "from " + r.Peer, null);
+            var from = r.Peer == null ? "?" : resolve ? ReverseDns.Label(r.Peer) : r.Peer.ToString();
+            return (r.Ms, "from " + from, null);
         });
     }
 
     TabPage BuildTracePage()
     {
         trHost = Edit("example.com", 220);
-        trMon = new CheckBox { Text = "monitor continuously", AutoSize = true, Margin = new Padding(3, 6, 3, 0) };
-        var settings = SettingsGroup(Row(Lbl("Host / IP:"), trHost, trMon,
+        trMon = Check("monitor continuously", false);
+        trResolve = Check("resolve names (DNS)", true);
+        var settings = SettingsGroup(Row(Lbl("Host / IP:"), trHost, trMon, trResolve,
             Btn("Start", 90, StartTrace), Btn("Stop", 90, () => trJob.Halt())));
         trOut = LogBox();
         var route = Group("Route (times in ms)", trOut);
@@ -438,6 +458,7 @@ sealed class MainForm : Form
         }
         var host = trHost.Text;
         var mon = trMon.Checked;
+        var resolve = trResolve.Checked;
         var token = trJob.Start();
         SetStatus("Traceroute running…");
         Task.Run(() =>
@@ -445,7 +466,7 @@ sealed class MainForm : Form
             using var echo = new Echo();
             while (true)
             {
-                var hops = Traceroute.RunTrace(echo, dst, new TraceOpts { MaxHops = 30, Probes = 3, Timeout = TimeSpan.FromSeconds(2), Resolve = true }, token);
+                var hops = Traceroute.RunTrace(echo, dst, new TraceOpts { MaxHops = 30, Probes = 3, Timeout = TimeSpan.FromSeconds(2), Resolve = resolve }, token);
                 if (token.IsCancellationRequested) return;
                 var txt = Traceroute.TraceText(host, dst.ToString(), hops);
                 Sync(() =>

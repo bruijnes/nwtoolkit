@@ -20,6 +20,7 @@ Commands:
       -i <s>       interval in seconds (default 1)
       -w <s>       timeout per ping in seconds (default 2)
       -s <bytes>   payload size (default 32)
+      -n           look up the reverse DNS name of the responder
       -6           use IPv6
 
   trace  <host>              traceroute
@@ -187,17 +188,18 @@ Examples:
 
     static void RunPing(string[] args)
     {
-        var (host, rest) = FirstPositional(args, "t", "6");
+        var (host, rest) = FirstPositional(args, "t", "n", "6");
         var fs = new FlagSet("ping");
         var c = fs.Int("c", 4);
         var t = fs.Bool("t");
         var i = fs.Double("i", 1);
         var w = fs.Double("w", 2);
         var s = fs.Int("s", 32);
+        var n = fs.Bool("n");
         var six = fs.Bool("6");
         fs.Parse(rest);
         if (host == "") Die("specify a host: nwtoolkit ping <host>");
-        PingCmd.Run(new PingOpts { Host = host, Count = t.Value ? 0 : c.Value, Interval = Dur(i.Value), Timeout = Dur(w.Value), Size = s.Value, IPv6 = six.Value });
+        PingCmd.Run(new PingOpts { Host = host, Count = t.Value ? 0 : c.Value, Interval = Dur(i.Value), Timeout = Dur(w.Value), Size = s.Value, IPv6 = six.Value, Resolve = n.Value });
     }
 
     static void RunTrace(string[] args)

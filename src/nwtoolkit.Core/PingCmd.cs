@@ -11,6 +11,7 @@ public sealed class PingOpts
     public TimeSpan Timeout = TimeSpan.FromSeconds(2);
     public int Size = 32;
     public bool IPv6;
+    public bool Resolve; // show the reverse DNS name of the responder
 }
 
 public static class PingCmd
@@ -60,7 +61,8 @@ public static class PingCmd
             {
                 samples.Add(ms);
                 var c = ms > 100 ? CYellow : CGreen;
-                Console.WriteLine($"  {NowStamp()}  reply from {r.Peer,-15}  time={Col(c, ms.F(2) + " ms")}  status=ok");
+                var from = o.Resolve && r.Peer != null ? ReverseDns.Label(r.Peer) : r.Peer?.ToString() ?? "?";
+                Console.WriteLine($"  {NowStamp()}  reply from {from,-15}  time={Col(c, ms.F(2) + " ms")}  status=ok");
             }
             else
             {

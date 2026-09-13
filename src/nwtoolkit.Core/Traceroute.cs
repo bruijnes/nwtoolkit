@@ -49,25 +49,11 @@ public static class Traceroute
                 hr.Rtts.Add(r.Ms);
                 if (r.Status == IPStatus.Success) hr.Reached = true;
             }
-            if (o.Resolve && hr.Ip != null) hr.Name = ReverseName(hr.Ip);
+            if (o.Resolve && hr.Ip != null) hr.Name = ReverseDns.Name(hr.Ip);
             hops.Add(hr);
             if (hr.Reached) break;
         }
         return hops;
-    }
-
-    public static string ReverseName(IPAddress ip)
-    {
-        try
-        {
-            var name = Dns.GetHostEntry(ip).HostName;
-            if (string.IsNullOrEmpty(name) || name == ip.ToString()) return "";
-            return name.TrimEnd('.');
-        }
-        catch
-        {
-            return "";
-        }
     }
 
     public static void PrintHops(IPAddress dst, string host, List<HopResult> hops)

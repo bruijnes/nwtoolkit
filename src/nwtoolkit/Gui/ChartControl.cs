@@ -95,6 +95,10 @@ sealed class ChartControl : Control
         Band: Color.FromArgb(0x4a, 0x78, 0x7a),
         Text: Color.FromArgb(0xd0, 0xd4, 0xd8));
 
+    /// <summary>The plot area colour for the current app mode; the output boxes use it too.</summary>
+    public static Color PlotBackground => (Application.IsDarkModeEnabled ? dark : light).Bg;
+    public static Color PlotForeground => Application.IsDarkModeEnabled ? Color.FromArgb(0xe8, 0xe8, 0xe8) : SystemColors.ControlText;
+
     public ChartControl()
     {
         DoubleBuffered = true;

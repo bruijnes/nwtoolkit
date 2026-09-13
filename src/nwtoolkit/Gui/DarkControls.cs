@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace Nwtoolkit.Gui;
 
 /// <summary>
@@ -13,39 +15,27 @@ static class DarkFrame
 
 sealed class FramedTabControl : TabControl
 {
-    const int WM_PAINT = 0x000F;
+    const int TCM_ADJUSTRECT = 0x1328;
 
+    [StructLayout(LayoutKind.Sequential)]
+    struct RECT { public int Left, Top, Right, Bottom; }
+
+    /// <summary>
+    /// When the control computes where the page goes (TCM_ADJUSTRECT, wParam 0), the
+    /// answer is widened to the control's own edges, just below the tab headers. The
+    /// page then covers the frame the control paints, so the frame is never seen.
+    /// </summary>
     protected override void WndProc(ref Message m)
     {
         base.WndProc(ref m);
-        if (m.Msg == WM_PAINT && DarkFrame.Active && IsHandleCreated) PaintFrame();
-    }
-
-    /// <summary>Covers the page frame the control just painted with the grey one.</summary>
-    void PaintFrame()
-    {
-        try
-        {
-            using var g = Graphics.FromHwnd(Handle);
-            var outer = ClientRectangle;
-            var page = DisplayRectangle;
-            using var fill = new SolidBrush(BackColor);
-            using var pen = new Pen(DarkFrame.Colour);
-
-            // strip between the tab headers and the page, plus left, right and bottom strips
-            var headerBottom = TabCount > 0 && SelectedIndex >= 0 ? GetTabRect(SelectedIndex).Bottom : page.Top;
-            g.FillRectangle(fill, outer.Left, headerBottom, outer.Width, page.Top - headerBottom);
-            g.FillRectangle(fill, outer.Left, page.Top, page.Left - outer.Left, outer.Bottom - page.Top);
-            g.FillRectangle(fill, page.Right, page.Top, outer.Right - page.Right, outer.Bottom - page.Top);
-            g.FillRectangle(fill, outer.Left, page.Bottom, outer.Width, outer.Bottom - page.Bottom);
-
-            // one thin grey line around the page
-            g.DrawRectangle(pen, page.Left - 1, page.Top - 1, page.Width + 1, page.Height + 1);
-        }
-        catch
-        {
-            // painting is best effort; a missed frame is repainted on the next WM_PAINT
-        }
+        if (m.Msg != TCM_ADJUSTRECT || m.WParam != IntPtr.Zero || !DarkFrame.Active || m.LParam == IntPtr.Zero) return;
+        var rc = Marshal.PtrToStructure<RECT>(m.LParam);
+        var headerBottom = TabCount > 0 ? GetTabRect(Math.Max(0, SelectedIndex)).Bottom : rc.Top;
+        rc.Left = 0;
+        rc.Right = Width;
+        rc.Bottom = Height;
+        rc.Top = Math.Min(rc.Top, headerBottom);
+        Marshal.StructureToPtr(rc, m.LParam, false);
     }
 }
 

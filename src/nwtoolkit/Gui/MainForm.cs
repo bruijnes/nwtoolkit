@@ -301,10 +301,15 @@ sealed class MainForm : Form
         var tabs = new TabControl { Dock = DockStyle.Fill, Font = tabFont };
         tabs.TabPages.AddRange(new[] { BuildPingPage(), BuildTracePage(), BuildDnsPage(), BuildDnsSpeedPage(), BuildDhcpPage(), BuildLldpPage(), BuildAboutPage() });
 
+        // The IP version choice sits on the tab strip itself, at the right, so it does
+        // not cost a row of its own: a small panel laid over the TabControl's header area.
         ipVer = Combo(false, 90, "IPv4", "IPv6");
-        var top = new FlowLayoutPanel { Dock = DockStyle.Top, FlowDirection = FlowDirection.RightToLeft, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(10, 6, 12, 0) };
+        var top = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Anchor = AnchorStyles.Top | AnchorStyles.Right, Margin = Padding.Empty, Padding = Padding.Empty };
+        var ipLabel = Lbl("IP version:");
+        ipLabel.Margin = new Padding(0, 6, 4, 0);
+        ipVer.Margin = new Padding(0, 2, 0, 0);
+        top.Controls.Add(ipLabel);
         top.Controls.Add(ipVer);
-        top.Controls.Add(Lbl("IP version:"));
 
         status = new ToolStripStatusLabel("Ready.") { Spring = true, TextAlign = ContentAlignment.MiddleLeft };
         var strip = new StatusStrip { SizingGrip = true };
@@ -313,8 +318,20 @@ sealed class MainForm : Form
         Controls.Add(tabs);
         Controls.Add(top);
         Controls.Add(strip);
+        top.BringToFront();
 
-        Load += (_, _) => PopulateInterfaces();
+        void PlaceIpVersion()
+        {
+            var headerH = tabs.DisplayRectangle.Y; // height of the tab strip above the pages
+            top.Left = ClientSize.Width - top.Width - (int)(12 * DeviceDpi / 96f);
+            top.Top = Math.Max(0, (headerH - top.Height) / 2);
+        }
+        Load += (_, _) =>
+        {
+            PlaceIpVersion();
+            PopulateInterfaces();
+        };
+        DpiChanged += (_, _) => PlaceIpVersion();
         FormClosing += (_, _) =>
         {
             pJob.Halt();
@@ -648,14 +665,15 @@ sealed class MainForm : Form
         {
             Multiline = true, ReadOnly = true, Font = uiFont, BackColor = SystemColors.Control, BorderStyle = BorderStyle.None,
             Text = "Network diagnostic tool for IPv4, IPv6 and LLDP.  Made by vibe coding using Anthropic's Claude*.\r\n\r\n" +
-                   "Software is licensed under the MIT license. If you have any suggestions, bug fixes or want to get in touch visit: https://github.com/bruijnes/.\r\n\r\n" +
+                   "Software is licensed under the MIT license. If you have any suggestions, bug fixes or want to\r\n" +
+                   "get in touch visit: https://github.com/bruijnes/.\r\n\r\n" +
                    "* Claude is a trademark of Anthropic, PBC.",
         };
         var licTitle = new Label { Text = "MIT license", Font = new Font("Segoe UI", 9f, FontStyle.Bold), AutoSize = true, Margin = new Padding(0, 8, 0, 4) };
         var lic = LogBox();
         lic.Text = MitLicense;
         lic.Select(0, 0);
-        var page = Page("About", (title, SizeType.AutoSize, 0), (about, SizeType.Absolute, 110), (licTitle, SizeType.AutoSize, 0), (lic, SizeType.Percent, 100));
+        var page = Page("About", (title, SizeType.AutoSize, 0), (about, SizeType.Absolute, 128), (licTitle, SizeType.AutoSize, 0), (lic, SizeType.Percent, 100));
         page.Padding = new Padding(18);
         return page;
     }

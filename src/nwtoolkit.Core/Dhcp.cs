@@ -10,12 +10,16 @@ namespace Nwtoolkit;
 
 public sealed class DhcpOpts
 {
+    /// <summary>How long one measurement waits for a server; fixed, not a user setting.</summary>
+    public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(60);
+    public static readonly TimeSpan DefaultInterval = TimeSpan.FromSeconds(1);
+
     public string Server = "";   // empty = broadcast; set = unicast INFORM
     public string Iface = "";
     public IPAddress? SrcIP;     // local IPv4 to bind to (selects the outgoing interface); null = the OS picks
-    public TimeSpan Timeout = TimeSpan.FromSeconds(3);
+    public TimeSpan Timeout = DefaultTimeout;
     public bool Monitor;
-    public TimeSpan Interval = TimeSpan.FromSeconds(5);
+    public TimeSpan Interval = DefaultInterval;
     public int Count;
     public int Port;             // local port; 0 = auto (68 for broadcast, ephemeral for inform)
     public bool IPv6;

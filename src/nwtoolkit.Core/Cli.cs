@@ -50,7 +50,7 @@ Commands:
       -6           DHCPv6 (INFORMATION-REQUEST; multicast or -s <server>)
       -1           single measurement
       -m           continuous monitor with live chart (default)
-      -i <s>       interval in seconds (default 5)
+      -i <s>       interval in seconds (default 1)
       -c <n>       fixed number of measurements
 
   lldp                       show LLDP neighbour (connected switch/port)
@@ -255,12 +255,12 @@ Examples:
         var s = fs.String("s", "");
         var one = fs.Bool("1");
         var m = fs.Bool("m", true);
-        var i = fs.Double("i", 5);
+        var i = fs.Double("i", DhcpOpts.DefaultInterval.TotalSeconds);
         var c = fs.Int("c", 0);
         var port = fs.Int("port", 0);
         var six = fs.Bool("6");
         fs.Parse(rest);
-        var o = new DhcpOpts { Server = s.Value, Timeout = TimeSpan.FromSeconds(3), Monitor = m.Value && !one.Value, Interval = Dur(i.Value), Count = c.Value, Port = port.Value, IPv6 = six.Value };
+        var o = new DhcpOpts { Server = s.Value, Monitor = m.Value && !one.Value, Interval = Dur(i.Value), Count = c.Value, Port = port.Value, IPv6 = six.Value };
         if (c.Value > 0) o.Monitor = false;
         if (one.Value)
         {
@@ -363,7 +363,7 @@ Examples:
                 {
                     var srv = Ask("  DHCP server IP (empty=broadcast)", "");
                     var cont = Ask("  Continuous (chart) or one-shot? (c/o)", "c").StartsWith('c');
-                    var o = new DhcpOpts { Server = srv, Timeout = TimeSpan.FromSeconds(3), Interval = TimeSpan.FromSeconds(5), Monitor = cont };
+                    var o = new DhcpOpts { Server = srv, Monitor = cont };
                     if (!cont) o.Count = 1;
                     Dhcp.Run(o);
                     break;

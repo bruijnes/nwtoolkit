@@ -55,7 +55,7 @@ sealed class MainForm : Form
     ChartControl dsChart = null!;
 
     ComboBox dhIf = null!;
-    TextBox dhInt = null!, dhTo = null!, dhOut = null!;
+    TextBox dhInt = null!, dhOut = null!;
     Label dhStats = null!;
     ChartControl dhChart = null!;
 
@@ -574,9 +574,8 @@ sealed class MainForm : Form
     TabPage BuildDhcpPage()
     {
         dhIf = Combo(true, 220);
-        dhInt = Edit("5", 50);
-        dhTo = Edit("8", 50);
-        var settings = SettingsGroup(Row(Lbl("Interface:"), dhIf, Lbl("Interval (s):"), dhInt, Lbl("Timeout (s):"), dhTo,
+        dhInt = Edit("1", 50);
+        var settings = SettingsGroup(Row(Lbl("Interface:"), dhIf, Lbl("Interval (s):"), dhInt,
             Btn("Start", 90, StartDhcp), Btn("Stop", 90, () => dhJob.Halt())));
         dhStats = new Label { Text = "Ready.", AutoSize = true };
         dhChart = new ChartControl { Data = dhData, MinimumSize = new Size(0, 130) };
@@ -600,10 +599,8 @@ sealed class MainForm : Form
                 if (IPAddress.TryParse(sel[(i + 1)..].Trim('(', ')', ' '), out var ip)) srcIP = ip;
             }
         }
-        var to = Dur(Atof(dhTo.Text, 8));
-        if (to <= TimeSpan.Zero) to = TimeSpan.FromSeconds(8);
-        var o = new DhcpOpts { Iface = name, SrcIP = srcIP, Timeout = to, IPv6 = UseV6 };
-        StartSpeed(dhJob, dhData, dhChart, dhStats, dhOut, "DHCP speed test", Dur(Atof(dhInt.Text, 5)), () =>
+        var o = new DhcpOpts { Iface = name, SrcIP = srcIP, IPv6 = UseV6 };
+        StartSpeed(dhJob, dhData, dhChart, dhStats, dhOut, "DHCP speed test", Dur(Atof(dhInt.Text, 1)), () =>
         {
             try
             {

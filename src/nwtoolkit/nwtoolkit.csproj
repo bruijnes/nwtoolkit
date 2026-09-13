@@ -43,6 +43,8 @@
     <PublishTrimmed>true</PublishTrimmed>
     <TrimMode>partial</TrimMode>
     <_SuppressWpfTrimError>true</_SuppressWpfTrimError>
+    <!-- trimming switches built-in COM interop off; WPF needs it for DirectWrite (fonts) and more -->
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
   </PropertyGroup>
 
   <ItemGroup>

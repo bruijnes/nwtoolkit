@@ -61,6 +61,8 @@ public partial class MainWindow : Window
         Title = $"nwtoolkit {Util.Version} — network diagnostics";
         AboutTitle.Text = "nwtoolkit " + Util.Version;
         AboutLic.Text = MitLicense;
+        AboutLink.NavigateUri = new Uri("https://github.com/bruijnes/");
+        LoadIcon();
         PChart.Data = pData;
         DsChart.Data = dsData;
         DhChart.Data = dhData;
@@ -78,6 +80,20 @@ public partial class MainWindow : Window
             trJob.Halt();
             llJob.Halt();
         };
+    }
+
+    /// <summary>The window icon from the embedded .ico; a failure here must never stop the window.</summary>
+    void LoadIcon()
+    {
+        try
+        {
+            var info = Application.GetResourceStream(new Uri("pack://application:,,,/nwtoolkit.ico"));
+            if (info?.Stream is { } s)
+            {
+                using (s) Icon = System.Windows.Media.Imaging.BitmapFrame.Create(s, System.Windows.Media.Imaging.BitmapCreateOptions.None, System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
+            }
+        }
+        catch { }
     }
 
     /// <summary>The output boxes share the chart's plot colour, so every text area looks the same.</summary>

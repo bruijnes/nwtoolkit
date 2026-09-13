@@ -50,6 +50,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      The XAML loader finds type converters through reflection, which the trimmer
+      cannot see. Keep the assemblies that hold them in full, otherwise a converter
+      such as UriTypeConverter is missing at run time and the window fails to load.
+    -->
+    <TrimmerRootAssembly Include="System.ComponentModel.TypeConverter" />
+    <TrimmerRootAssembly Include="System.ComponentModel.Primitives" />
+    <TrimmerRootAssembly Include="System.ObjectModel" />
+    <TrimmerRootAssembly Include="System.Private.Uri" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- the icon is also a WPF resource so the window can show it -->
     <Resource Include="nwtoolkit.ico" />
   </ItemGroup>

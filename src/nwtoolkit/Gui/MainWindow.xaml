@@ -3,7 +3,6 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:gui="clr-namespace:Nwtoolkit.Gui"
         Title="nwtoolkit" Width="1100" Height="760" MinWidth="980" MinHeight="520"
-        Icon="pack://application:,,,/nwtoolkit.ico"
         FontFamily="Segoe UI" FontSize="13">
   <Window.Resources>
     <!-- read-only monospace output box -->
@@ -221,7 +220,7 @@
                 <Run Text="Network diagnostic tool for IPv4, IPv6 and LLDP.  Made by vibe coding using Anthropic's Claude*."/>
                 <LineBreak/><LineBreak/>
                 <Run Text="Software is licensed under the MIT license. If you have any suggestions, bug fixes or want to get in touch, visit"/>
-                <Hyperlink NavigateUri="https://github.com/bruijnes/" RequestNavigate="OpenLink">https://github.com/bruijnes/</Hyperlink>
+                <Hyperlink x:Name="AboutLink" RequestNavigate="OpenLink">https://github.com/bruijnes/</Hyperlink>
                 <LineBreak/><LineBreak/>
                 <Run Text="* Claude is a trademark of Anthropic, PBC."/>
               </TextBlock>

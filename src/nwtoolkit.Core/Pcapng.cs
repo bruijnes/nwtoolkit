@@ -79,6 +79,9 @@ public static class Pcapng
         return out_;
     }
 
+    /// <summary>Link type of the blocks this tool writes: raw IP, no link layer (LINKTYPE_RAW).</summary>
+    public const ushort LinkTypeRaw = 101;
+
     /// <summary>Extracts the raw packet frames from a pcapng file, as pktmon writes it.</summary>
     public static List<byte[]> Parse(ReadOnlySpan<byte> data)
     {
@@ -111,4 +114,84 @@ public static class Pcapng
         }
         return frames;
     }
+}
+
+/// <summary>
+/// Writes a pcapng file that Wireshark opens. The capture records raw IP packets without
+/// a link layer, so the file declares LINKTYPE_RAW and holds one Enhanced Packet Block per
+/// packet, with microsecond timestamps (pcapng's default resolution, so no if_tsresol
+/// option is needed).
+/// </summary>
+public sealed class PcapngWriter : IDisposable
+{
+    const uint BlockShb = 0x0a0d0d0a, BlockIdb = 1, BlockEpb = 6;
+    const int SnapLen = 65535;
+
+    readonly FileStream file;
+    readonly byte[] head = new byte[32];
+
+    public PcapngWriter(string path, string ifName)
+    {
+        file = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read);
+        WriteSectionHeader();
+        WriteInterfaceDescription(ifName);
+    }
+
+    /// <summary>Appends one packet, timestamped in microseconds since the Unix epoch.</summary>
+    public void Write(DateTime time, ReadOnlySpan<byte> packet)
+    {
+        var usec = (ulong)(time.ToUniversalTime() - DateTime.UnixEpoch).Ticks / 10;
+        var pad = (4 - (packet.Length & 3)) & 3;
+        var total = 32 + packet.Length + pad;
+        var h = head.AsSpan();
+        Put(h, 0, BlockEpb);
+        Put(h, 4, (uint)total);
+        Put(h, 8, 0);                          // interface 0
+        Put(h, 12, (uint)(usec >> 32));        // timestamp, high half
+        Put(h, 16, (uint)usec);                // timestamp, low half
+        Put(h, 20, (uint)packet.Length);       // captured length
+        Put(h, 24, (uint)packet.Length);       // original length
+        file.Write(h[..28]);
+        file.Write(packet);
+        if (pad > 0) file.Write(stackalloc byte[pad]);
+        Put(h, 0, (uint)total);
+        file.Write(h[..4]);                    // trailing block length
+    }
+
+    void WriteSectionHeader()
+    {
+        var h = head.AsSpan();
+        Put(h, 0, BlockShb);
+        Put(h, 4, 28);
+        Put(h, 8, 0x1a2b3c4d);                 // byte-order magic: little endian
+        Put(h, 12, 1);                         // version: major 1, minor 0 (two 16-bit fields)
+        Put(h, 16, 0xffffffff);                // section length: unknown
+        Put(h, 20, 0xffffffff);
+        Put(h, 24, 28);
+        file.Write(h[..28]);
+    }
+
+    void WriteInterfaceDescription(string ifName)
+    {
+        var name = System.Text.Encoding.UTF8.GetBytes(ifName);
+        if (name.Length > 250) name = name[..250];
+        var pad = (4 - (name.Length & 3)) & 3;
+        var total = 16 + 4 + name.Length + pad + 4 + 4; // fixed part, if_name option, opt_endofopt, trailing length
+        var h = head.AsSpan();
+        Put(h, 0, BlockIdb);
+        Put(h, 4, (uint)total);
+        Put(h, 8, Pcapng.LinkTypeRaw);         // link type (16 bit) + reserved (16 bit)
+        Put(h, 12, SnapLen);
+        Put(h, 16, (uint)(name.Length << 16 | 2)); // option if_name (code 2) and its length
+        file.Write(h[..20]);
+        file.Write(name);
+        if (pad > 0) file.Write(stackalloc byte[pad]);
+        Put(h, 0, 0);                          // opt_endofopt
+        Put(h, 4, (uint)total);
+        file.Write(h[..8]);
+    }
+
+    static void Put(Span<byte> b, int off, uint v) => BinaryPrimitives.WriteUInt32LittleEndian(b[off..], v);
+
+    public void Dispose() => file.Dispose();
 }

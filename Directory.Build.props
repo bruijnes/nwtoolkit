@@ -10,12 +10,12 @@
     <DebugType>embedded</DebugType>
 
     <!-- One version for the whole product. Displayed in the window title and `nwtoolkit version`. -->
-    <Version>0.6</Version>
+    <Version>0.7</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Authors>Vincent Bruijnes</Authors>
     <Company>Vincent Bruijnes</Company>
     <Product>nwtoolkit</Product>
     <Copyright>(c) Vincent Bruijnes</Copyright>
-    <Description>Network diagnostics: ping, traceroute, DNS, DHCP, LLDP</Description>
+    <Description>Network diagnostics: ping, traceroute, DNS, DHCP, LLDP, packet capture</Description>
   </PropertyGroup>
 </Project>

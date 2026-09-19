@@ -117,4 +117,38 @@ public class PcapngTests
         var cut = data[..^5]; // last block is cut short
         Assert.Empty(Pcapng.Parse(cut));
     }
+
+    /// <summary>
+    /// What the capture writes has to be readable again, block lengths and padding
+    /// included: a file Wireshark rejects is only noticed long after the capture is gone.
+    /// </summary>
+    [Theory]
+    [InlineData(4)]   // a length that needs no padding
+    [InlineData(41)]  // and one that needs three bytes of it
+    public void WriterRoundTrip(int size)
+    {
+        var path = Path.Combine(Path.GetTempPath(), "nwtoolkit_writer_test_" + size + ".pcapng");
+        var a = Enumerable.Range(0, size).Select(i => (byte)i).ToArray();
+        var b = Enumerable.Range(0, 60).Select(i => (byte)(255 - i)).ToArray();
+        var t = new DateTime(2026, 9, 18, 10, 30, 15, DateTimeKind.Utc).AddTicks(1234560); // .123456 s
+        try
+        {
+            using (var w = new PcapngWriter(path, "Ethernet"))
+            {
+                w.Write(t, a);
+                w.Write(t.AddSeconds(1), b);
+            }
+            var frames = Pcapng.ParseWithTimestamps(File.ReadAllBytes(path));
+            Assert.Equal(2, frames.Count);
+            Assert.Equal(a, frames[0].Data);
+            Assert.Equal(b, frames[1].Data);
+            var wantNanos = (t - DateTime.UnixEpoch).Ticks * 100;
+            Assert.Equal(wantNanos, frames[0].TsNanos);
+            Assert.Equal(wantNanos + 1_000_000_000L, frames[1].TsNanos);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }

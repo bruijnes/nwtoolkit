@@ -19,7 +19,6 @@ public sealed class LldpNeighbor
     public string Caps = "";
     public int VLAN;
     public string LocalIf = "";
-    public DateTime LastSeen;
 
     public string Key => ChassisID + "|" + PortID;
 
@@ -106,7 +105,6 @@ public static class Lldp
             }
         }
         if (n.ChassisID == "" && n.PortID == "" && n.SysName == "") return null;
-        n.LastSeen = DateTime.Now;
         return n;
     }
 

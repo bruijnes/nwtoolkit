@@ -35,7 +35,7 @@ sealed class Job
 public partial class MainWindow : Window
 {
     readonly ChartData pData = new("ms"), dsData = new("ms"), dhData = new("ms");
-    readonly Job pJob = new(), dsJob = new(), dhJob = new(), trJob = new(), llJob = new();
+    readonly Job pJob = new(), dsJob = new(), dhJob = new(), trJob = new(), llJob = new(), capJob = new();
 
     const string MitLicense = "MIT License\r\n\r\n" +
         "Copyright (c) 2026 Vincent Bruijnes\r\n\r\n" +
@@ -80,6 +80,7 @@ public partial class MainWindow : Window
             dhJob.Halt();
             trJob.Halt();
             llJob.Halt();
+            capJob.Halt();
         };
     }
 
@@ -105,7 +106,7 @@ public partial class MainWindow : Window
         // white text on the grey boxes in dark mode; the theme's normal text colour otherwise
         var fg = dark ? new SolidColorBrush(Color.FromRgb(0xf4, 0xf4, 0xf4))
                       : TryFindResource("TextFillColorPrimaryBrush") as Brush ?? Brushes.Black;
-        foreach (var tb in new[] { PLog, TrOut, DOut, DhOut, LlOut, AboutLic })
+        foreach (var tb in new[] { PLog, TrOut, DOut, DhOut, LlOut, CapOut, AboutLic })
         {
             tb.Background = bg;
             tb.Foreground = fg;
@@ -143,6 +144,26 @@ public partial class MainWindow : Window
         DhIf.Items.Add("(automatic)");
         foreach (var ic in Dhcp.UsableIPv4Ifaces()) DhIf.Items.Add($"{ic.Name}  ({ic.Ip})");
         DhIf.SelectedIndex = 0;
+
+        // the capture list is the same NICs; the first entry means "let the routing decide"
+        CapIf.Items.Clear();
+        CapIf.Items.Add("(default adapter)");
+        foreach (var ic in Sniffer.Interfaces(false)) CapIf.Items.Add($"{ic.Name}  ({ic.Ip})");
+        CapIf.SelectedIndex = 0;
+    }
+
+    /// <summary>
+    /// Splits an entry of an interface box back into the name and the address it shows,
+    /// "Ethernet  (192.168.1.10)". The placeholder entries mean "no choice made".
+    /// </summary>
+    static (string Name, IPAddress? Ip) ParseIface(string sel)
+    {
+        sel = sel.Trim();
+        if (sel == "" || sel.StartsWith('(')) return ("", null);
+        var i = sel.LastIndexOf('(');
+        if (i < 0) return (sel, null);
+        IPAddress.TryParse(sel[(i + 1)..].Trim('(', ')', ' '), out var ip);
+        return (sel[..i].Trim(), ip);
     }
 
     // ---- helpers ----
@@ -368,19 +389,7 @@ public partial class MainWindow : Window
 
     void StartDhcp(object sender, RoutedEventArgs e)
     {
-        var sel = DhIf.Text.Trim();
-        IPAddress? srcIP = null;
-        var name = "";
-        if (sel != "" && sel != "(automatic)")
-        {
-            name = sel;
-            var i = sel.LastIndexOf('(');
-            if (i >= 0)
-            {
-                name = sel[..i].Trim();
-                if (IPAddress.TryParse(sel[(i + 1)..].Trim('(', ')', ' '), out var ip)) srcIP = ip;
-            }
-        }
+        var (name, srcIP) = ParseIface(DhIf.Text);
         var o = new DhcpOpts { Iface = name, SrcIP = srcIP, IPv6 = UseV6 };
         StartSpeed(dhJob, dhData, DhChart, DhStats, DhOut, "DHCP speed test", Dur(Atof(DhInt.Text, 1)), () =>
         {
@@ -443,4 +452,133 @@ public partial class MainWindow : Window
             });
         });
     }
+
+    // ---- packet capture ----
+
+    /// <summary>Beyond this the box is cleared: a busy adapter would otherwise fill it endlessly.</summary>
+    const int MaxCaptureLines = 4000;
+
+    void BrowseCaptureFile(object sender, RoutedEventArgs e)
+    {
+        var name = "nwtoolkit-" + DateTime.Now.ToString("yyyyMMdd-HHmm") + ".pcapng";
+        try
+        {
+            var dlg = new Microsoft.Win32.SaveFileDialog
+            {
+                Title = "Write the captured packets to",
+                Filter = "Wireshark capture (*.pcapng)|*.pcapng|All files (*.*)|*.*",
+                DefaultExt = ".pcapng",
+                FileName = name,
+            };
+            if (dlg.ShowDialog(this) == true) CapFile.Text = dlg.FileName;
+        }
+        catch (Exception ex)
+        {
+            // The shell dialog is COM, the one thing trimming has broken here before.
+            // Losing it must not cost the feature: fall back to a path in Documents.
+            CapFile.Text = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), name);
+            SetStatus("Could not open the file dialog (" + ex.Message + "); using " + CapFile.Text);
+        }
+    }
+
+    void StartCapture(object sender, RoutedEventArgs e)
+    {
+        if (!EnsureElevated("Packet capture needs administrator rights.")) return;
+        var proto = (CapProto.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "all";
+        var host = CapHost.Text.Trim();
+        var port = int.TryParse(CapPort.Text.Trim(), out var p) ? p : 0;
+        var o = new DumpOpts
+        {
+            Iface = ParseIface(CapIf.Text).Name,
+            // the dropdowns read "src / dst", "src", "dst": either side, the source, the destination
+            Host = CapHostDir.SelectedIndex == 0 ? host : "",
+            SrcHost = CapHostDir.SelectedIndex == 1 ? host : "",
+            DstHost = CapHostDir.SelectedIndex == 2 ? host : "",
+            Port = CapPortDir.SelectedIndex == 0 ? port : 0,
+            SrcPort = CapPortDir.SelectedIndex == 1 ? port : 0,
+            DstPort = CapPortDir.SelectedIndex == 2 ? port : 0,
+            Proto = proto == "all" ? "" : proto,
+            File = CapFile.Text.Trim(),
+            IPv6 = UseV6,
+        };
+        NetIface nic;
+        try { nic = Sniffer.Select(o.Iface, o.IPv6); }
+        catch (Exception ex)
+        {
+            CapOut.Text = "error: " + ex.Message;
+            SetStatus("Capture error.");
+            return;
+        }
+
+        var token = capJob.Start();
+        var filter = o.Filter().Describe();
+        CapOut.Text = $"Capturing on {nic.Name} ({nic.Ip}), {(o.IPv6 ? "IPv6" : "IPv4")}" +
+                      (filter == "" ? "" : ", filter: " + filter) +
+                      (o.File == "" ? "" : ", writing to " + o.File) + "\r\n";
+        SetStatus("Capture running…");
+
+        // Packets can arrive far faster than the window can repaint, so lines are collected
+        // and handed over in batches: on every tick with traffic, and on every idle tick.
+        var pending = new List<string>();
+        var lines = 0;
+        var captured = 0;
+        void Flush()
+        {
+            string[] batch;
+            lock (pending)
+            {
+                if (pending.Count == 0) return;
+                batch = pending.ToArray();
+                pending.Clear();
+            }
+            var n = captured;
+            Sync(() =>
+            {
+                if (token.IsCancellationRequested) return;
+                lines += batch.Length;
+                if (lines > MaxCaptureLines)
+                {
+                    CapOut.Text = "… older lines dropped …\r\n";
+                    lines = batch.Length;
+                }
+                Append(CapOut, string.Join("\r\n", batch) + "\r\n");
+                SetStatus($"Capture running — {n} packet(s)");
+            });
+        }
+
+        Task.Run(() =>
+        {
+            var last = Environment.TickCount64;
+            try
+            {
+                var res = Tcpdump.Capture(o, nic, pkt =>
+                {
+                    lock (pending) pending.Add(pkt.Line());
+                    captured++;
+                    if (Environment.TickCount64 - last < 200) return;
+                    last = Environment.TickCount64;
+                    Flush();
+                }, token, onIdle: () =>
+                {
+                    last = Environment.TickCount64;
+                    Flush();
+                });
+                Flush();
+                Sync(() => SetStatus($"Capture stopped — {res.Captured} packet(s) of {res.Seen} seen." +
+                                     (o.File != "" && res.Captured > 0 ? "  Written to " + o.File : "")));
+            }
+            catch (Exception ex)
+            {
+                if (token.IsCancellationRequested) return;
+                Sync(() =>
+                {
+                    Append(CapOut, "error: " + ex.Message + "\r\n");
+                    SetStatus("Capture error.");
+                });
+            }
+        });
+    }
+
+    void StopCapture(object sender, RoutedEventArgs e) => capJob.Halt();
 }

@@ -57,7 +57,7 @@
     </Border>
 
     <Grid>
-      <TabControl x:Name="Tabs" Margin="8,8,8,4">
+      <TabControl Margin="8,8,8,4">
 
         <TabItem Header="Ping">
           <Grid Margin="6">
@@ -208,6 +208,51 @@
             </GroupBox>
             <GroupBox Grid.Row="1" Header="Connected switch/port" Style="{StaticResource Card}">
               <TextBox x:Name="LlOut" Style="{StaticResource Out}"/>
+            </GroupBox>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="Packet capture">
+          <Grid Margin="6">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <GroupBox Grid.Row="0" Header="Settings" Style="{StaticResource Card}">
+              <StackPanel>
+                <WrapPanel>
+                  <TextBlock Text="Interface:" Style="{StaticResource Lbl}"/>
+                  <ComboBox x:Name="CapIf" Width="240" IsEditable="True" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                  <TextBlock Text="Protocol:" Style="{StaticResource Lbl}"/>
+                  <ComboBox x:Name="CapProto" Width="80" SelectedIndex="0" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <ComboBoxItem Content="all"/><ComboBoxItem Content="tcp"/><ComboBoxItem Content="udp"/><ComboBoxItem Content="icmp"/>
+                  </ComboBox>
+                </WrapPanel>
+                <!-- each filter says which side it applies to, so one direction can be singled out -->
+                <WrapPanel Margin="0,8,0,0">
+                  <TextBlock Text="Host / IP:" Style="{StaticResource Lbl}"/>
+                  <TextBox x:Name="CapHost" Width="140" Style="{StaticResource In}" Margin="0,0,6,0"/>
+                  <!-- no fixed width: the box sizes to its widest item, so nothing is clipped at any DPI -->
+                  <ComboBox x:Name="CapHostDir" SelectedIndex="0" Margin="0,0,16,0" VerticalAlignment="Center">
+                    <ComboBoxItem Content="src / dst"/><ComboBoxItem Content="src"/><ComboBoxItem Content="dst"/>
+                  </ComboBox>
+                  <TextBlock Text="Port:" Style="{StaticResource Lbl}"/>
+                  <TextBox x:Name="CapPort" Width="70" Style="{StaticResource In}" Margin="0,0,6,0"/>
+                  <ComboBox x:Name="CapPortDir" SelectedIndex="0" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <ComboBoxItem Content="src / dst"/><ComboBoxItem Content="src"/><ComboBoxItem Content="dst"/>
+                  </ComboBox>
+                </WrapPanel>
+                <WrapPanel Margin="0,8,0,0">
+                  <TextBlock Text="Save to:" Style="{StaticResource Lbl}"/>
+                  <TextBox x:Name="CapFile" Width="260" Style="{StaticResource In}" Margin="0,0,6,0"/>
+                  <Button Content="Browse…" Click="BrowseCaptureFile" Style="{StaticResource Btn}" MinWidth="80"/>
+                  <Button Content="Start" Click="StartCapture" Style="{StaticResource Btn}"/>
+                  <Button Content="Stop" Click="StopCapture" Style="{StaticResource Btn}"/>
+                </WrapPanel>
+              </StackPanel>
+            </GroupBox>
+            <GroupBox Grid.Row="1" Header="Packets" Style="{StaticResource Card}">
+              <TextBox x:Name="CapOut" Style="{StaticResource Out}" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap"/>
             </GroupBox>
           </Grid>
         </TabItem>

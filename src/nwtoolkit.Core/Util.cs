@@ -172,7 +172,6 @@ public sealed class CtrlC : IDisposable
     }
 
     public CancellationToken Token => cts.Token;
-    public bool Pressed => cts.IsCancellationRequested;
 
     /// <summary>Waits for the interval; returns true when Ctrl+C was pressed in the meantime.</summary>
     public bool Wait(TimeSpan d)

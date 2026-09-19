@@ -59,6 +59,24 @@ Commands:
       -m           keep monitoring
       (uses the built-in pktmon; Administrator required)
 
+  tcpdump                    live packet capture, one line per packet
+      -i <iface>   interface name, description or IP
+                   empty = the adapter of the default route
+      -l           list the interfaces that can be captured on
+      -c <n>       stop after n packets
+      -d <s>       stop after s seconds
+      -host <ip>   only packets from or to this address (a name is resolved)
+      -src <ip>    only packets from this address
+      -dst <ip>    only packets to this address
+      -port <n>    only packets from or to this port
+      -sport <n>   only packets from this port
+      -dport <n>   only packets to this port
+      -proto <p>   only tcp, udp or icmp
+                   (filters combine: -src 10.0.0.5 -dport 443 is one direction)
+      -w <file>    also write a .pcapng file to open in Wireshark
+      -6           capture IPv6 instead of IPv4
+      (Administrator required; IP packets only, so no ARP - use lldp for layer 2)
+
 
 Examples:
   nwtoolkit ping 8.8.8.8 -t
@@ -66,6 +84,9 @@ Examples:
   nwtoolkit dns example.com -s 1.1.1.1 -type MX
   nwtoolkit dnsspeed example.com -s 1.1.1.1
   nwtoolkit dhcp -s 192.168.1.1
+  nwtoolkit tcpdump -i Ethernet -port 53 -c 20
+  nwtoolkit tcpdump -proto tcp -host 10.0.0.1 -w capture.pcapng
+  nwtoolkit tcpdump -src 192.168.1.10 -dport 443
 ";
 
     public static void Usage() => Console.Write(UsageText());
@@ -122,6 +143,9 @@ Examples:
                     break;
                 case "lldp": case "cdp": case "neighbor": case "buur":
                     RunLldp(rest);
+                    break;
+                case "tcpdump": case "dump": case "capture": case "sniff":
+                    RunTcpdump(rest);
                     break;
                 case "menu":
                     InteractiveMenu();
@@ -296,6 +320,47 @@ Examples:
         Lldp.Run(new LldpOpts { Wait = Dur(w.Value), Monitor = m.Value, List = l.Value });
     }
 
+    static void RunTcpdump(string[] args)
+    {
+        var (_, rest) = SplitArgs(args, new HashSet<string> { "l", "6" });
+        var fs = new FlagSet("tcpdump");
+        var i = fs.String("i", "");
+        var l = fs.Bool("l");
+        var c = fs.Int("c", 0);
+        var d = fs.Double("d", 0);
+        var host = fs.String("host", "");
+        var src = fs.String("src", "");
+        var dst = fs.String("dst", "");
+        var port = fs.Int("port", 0);
+        var sport = fs.Int("sport", 0);
+        var dport = fs.Int("dport", 0);
+        var proto = fs.String("proto", "");
+        var w = fs.String("w", "");
+        var six = fs.Bool("6");
+        fs.Parse(rest);
+        var o = new DumpOpts
+        {
+            Iface = i.Value, List = l.Value, Count = c.Value, Duration = Dur(d.Value),
+            Host = host.Value, SrcHost = src.Value, DstHost = dst.Value,
+            Port = port.Value, SrcPort = sport.Value, DstPort = dport.Value,
+            Proto = proto.Value, File = w.Value, IPv6 = six.Value,
+        };
+        // The raw socket needs Administrator; listing the interfaces does not.
+        if (!o.List && !Elevation.IsElevated() && PromptRestartAsAdmin("Packet capture"))
+        {
+            try
+            {
+                Elevation.RelaunchAsAdmin(new[] { "tcpdump" }.Concat(args).Append("-keepopen"));
+            }
+            catch (Exception e)
+            {
+                Die($"could not restart as administrator: {e.Message}");
+            }
+            return;
+        }
+        Tcpdump.Run(o);
+    }
+
     // ---- interactive menu (when the exe is started without arguments in a terminal) ----
 
     public static void InteractiveMenu()
@@ -321,6 +386,7 @@ Examples:
             Console.WriteLine("   4)  DNS speed test (chart)");
             Console.WriteLine("   5)  DHCP speed test (chart)");
             Console.WriteLine("   6)  LLDP neighbour (connected switch/port)");
+            Console.WriteLine("   7)  Packet capture (tcpdump)");
             Console.WriteLine("   0)  Exit");
             Console.WriteLine();
             var choice = Ask("  Choice", "");
@@ -372,6 +438,22 @@ Examples:
                 {
                     var mon = Yes("  Monitor continuously? (y/n)", "n");
                     Lldp.Run(new LldpOpts { Wait = TimeSpan.FromSeconds(35), Monitor = mon });
+                    break;
+                }
+                case "7":
+                {
+                    foreach (var d in Sniffer.Interfaces(false)) Console.WriteLine(Col(CGrey, $"    {d.Name}  ({d.Ip})"));
+                    var iface = Ask("  Interface (empty = default adapter)", "");
+                    var filter = Ask("  Filter: host/IP (empty = all)", "");
+                    var port = Ask("  Filter: port (empty = all)", "");
+                    var count = Ask("  Stop after how many packets", "50");
+                    Tcpdump.Run(new DumpOpts
+                    {
+                        Iface = iface,
+                        Host = filter,
+                        Port = int.TryParse(port, out var p) ? p : 0,
+                        Count = int.TryParse(count, out var n) ? n : 50,
+                    });
                     break;
                 }
                 case "0": case "q": case "": case "":

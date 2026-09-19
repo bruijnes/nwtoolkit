@@ -98,7 +98,7 @@ public static class Traceroute
         public IPAddress? Ip;
         public string Name = "";
         public List<double> Samples = new();
-        public int Lost, Total;
+        public int Lost;
         public bool Reached;
     }
 
@@ -173,7 +173,6 @@ public static class Traceroute
                 if (hr.Reached) a.Reached = true;
                 foreach (var r in hr.Rtts)
                 {
-                    a.Total++;
                     if (r < 0)
                     {
                         a.Lost++;
